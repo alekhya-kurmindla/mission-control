@@ -27,6 +27,7 @@ Download Go from https://go.dev/dl/
 |   └── Dockerfile
 ├── docker-compose.yaml
 └── README.md
+└── test_missions.bat
 ```
 
 ### Run Commander
@@ -54,5 +55,3 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
 ## AI Usage Policy
 
 AI used only for documenting, debugging, and readability improvements.
-# mission-control
-Mission Control Project
