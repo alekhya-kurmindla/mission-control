@@ -2,6 +2,13 @@
 
 A distributed command system where a Commander sends mission orders via
 RabbitMQ and Soldiers process them and return status updates.
+## Welcome to the Command Center.
+Your mission, should you choose to accept it, is to help build a secure, resilient communication system designed for modern military operations.
+This project implements a one-way, asynchronous command pipeline between:
+Commander's Camp – Issues orders
+Soldier Units – Execute missions on the battlefield
+Central Communication Hub – A secure, internal message broker
+
 
 ## Setup Instructions
 
