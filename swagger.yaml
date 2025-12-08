@@ -1,0 +1,117 @@
+openapi: 3.0.3
+info:
+  title: Commander Camp API
+  description: API for issuing missions to Soldier workers through RabbitMQ
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+
+paths:
+
+  /login:
+    post:
+      summary: Generates a JWT token for authentication
+      description: Public endpoint. Returns a signed JWT token used to authenticate further API calls.
+      tags:
+        - Authentication
+      responses:
+        "200":
+          description: JWT token generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT authorization token
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        "500":
+          description: Failed to generate token
+
+  /missions:
+    post:
+      summary: Creates a new mission and publishes to RabbitMQ
+      description: Creates a mission, stores it in memory, and publishes it to RabbitMQ with retry logic.
+      security:
+        - bearerAuth: []
+      tags:
+        - Missions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                order:
+                  type: string
+                  example: Move to sector B7
+      responses:
+        "202":
+          description: Mission accepted and queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mission_id:
+                    type: string
+        "400":
+          description: Invalid input request
+        "401":
+          description: Unauthorized, missing or invalid JWT
+        "500":
+          description: Failed to publish mission
+
+  /missions/{id}:
+    get:
+      summary: Retrieves mission details by ID
+      description: Fetches mission status from memory storage.
+      security:
+        - bearerAuth: []
+      tags:
+        - Missions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Mission ID
+      responses:
+        "200":
+          description: Successful mission lookup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mission'
+        "401":
+          description: Unauthorized, missing or invalid JWT
+        "404":
+          description: Mission not found
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    Mission:
+      type: object
+      properties:
+        mission_id:
+          type: string
+          example: "b123f942-3bf1-4eb9-bfa0-1c0a92a5db20"
+        order:
+          type: string
+          example: "Patrol the northern perimeter"
+        status:
+          type: string
+          example: "QUEUED"
+      description: Mission details returned to the client

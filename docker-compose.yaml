@@ -1,0 +1,27 @@
+version: "3.9"
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: localhost
+    ports:
+      - "5672:5672"
+      - "15672:15672" # management console
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+
+  commander:
+    build: ./commander
+    depends_on:
+      - rabbitmq
+    ports:
+      - "8080:8080"
+    environment:
+      JWT_SECRET: supersecretkey123
+
+  soldier:
+    build: ./soldier
+    depends_on:
+      - rabbitmq
+    environment:
+      JWT_SECRET: supersecretkey123
