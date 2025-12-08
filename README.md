@@ -37,15 +37,19 @@ Download Go from https://go.dev/dl/
 └── test_missions.bat
 ```
 
-### Run Commander
+#### Run Commander
 
+```
 go run commander/main.go
+```
 
-### Run Soldier
+#### Run Soldier
 
+```
 go run soldier/main.go
+```
 
-### Docker compose
+#### Docker compose
 RUN docker
 ```
 docoker-compose up
