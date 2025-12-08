@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"mission_control/commander/models"
 	"mission_control/commander/store"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -17,7 +19,12 @@ const (
 )
 
 func SetupRabbitMQ() (*amqp.Connection, *amqp.Channel) {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/myvhost")
+	//conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/myvhost")
+	rabbitmqURL := os.Getenv("RABBITMQ_URL")
+	if rabbitmqURL == "" {
+		rabbitmqURL = "amqp://guest:guest@localhost:5672" // fallback
+	}
+	conn, err := amqp.Dial(rabbitmqURL)
 	failOnError(err, "Failed to connect to RabbitMQ")
 
 	ch, err := conn.Channel()

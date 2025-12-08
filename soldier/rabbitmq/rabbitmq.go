@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
@@ -26,7 +27,15 @@ func FailOnError(err error, msg string) {
 
 // SetupRabbitMQ connects to RabbitMQ and declares required queues
 func SetupRabbitMQ() (*amqp.Connection, *amqp.Channel) {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/myvhost")
+	//conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/myvhost")
+
+	rabbitmqURL := os.Getenv("RABBITMQ_URL")
+	if rabbitmqURL == "" {
+		rabbitmqURL = "amqp://guest:guest@localhost:5672" // fallback
+	}
+	conn, err := amqp.Dial(rabbitmqURL)
+
+	
 	FailOnError(err, "Failed to connect to RabbitMQ")
 
 	ch, err := conn.Channel()

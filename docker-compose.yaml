@@ -3,22 +3,24 @@ version: "3.9"
 services:
   rabbitmq:
     image: rabbitmq:3-management
-    hostname: localhost
+    container_name: rabbitmq
     ports:
       - "5672:5672"
-      - "15672:15672" # management console
+      - "15672:15672"   # Management UI
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
 
   commander:
     build: ./commander
+    container_name: commander
     depends_on:
       - rabbitmq
     ports:
       - "8080:8080"
     environment:
       JWT_SECRET: supersecretkey123
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
 
   soldier:
     build: ./soldier
@@ -26,6 +28,7 @@ services:
       - rabbitmq
     environment:
       JWT_SECRET: supersecretkey123
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
     deploy:
       replicas: 3
       restart_policy:
