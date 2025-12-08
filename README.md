@@ -45,6 +45,15 @@ go run commander/main.go
 
 go run soldier/main.go
 
+### Docker compose
+RUN docker
+```
+docoker-compose up
+```
+
+<img width="1573" height="775" alt="image" src="https://github.com/user-attachments/assets/31bf2b08-f7c8-4b0c-9f30-1dbc2ad36b17" />
+
+
 ## API Documentation
 <table>
     <tr>
