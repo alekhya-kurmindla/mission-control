@@ -105,29 +105,29 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
                                       ▼
                          ┌────────────────────────────────┐
                          │         RabbitMQ Queue         │
-                         │          orders_queue           │
-                         └────────────────┬────────────────┘
+                         │          orders_queue          │
+                         └────────────────┬───────────────┘
                                           │
                                           │ 3. Mission picked by Soldier
                                           ▼
                          ┌────────────────────────────────┐
                          │         Soldier Service        │
                          │   (execute_mission.go logic)   │
-                         └────────────────┬────────────────┘
+                         └────────────────┬───────────────┘
                                           │
-                                  ┌───────┴───────────────────────────────┐
+                                  ┌───────┴─────────────────────────────-──┐
                                   │ 3a. Publish "IN_PROGRESS" to RabbitMQ  │
-                                  │     status_queue                        │
-                                  └─────────────────────────────────────────┘
+                                  │     status_queue                       │
+                                  └────────────────────────────────────────┘
                                           │
                                           │ 4. Soldier executes mission
                                           │    • sleeps random 5–10 sec  
                                           │    • randomly completes/ fails  
                                           ▼
-                                  ┌────────────────────────────────────────┐
-                                  │ Publish final status (COMPLETED/FAILED)│
-                                  │             to status_queue             │
-                                  └────────────────────────────────────────┘
+                                  ┌───────────────────────────────────────-─┐
+                                  │ Publish final status (COMPLETED/FAILED) │
+                                  │             to status_queue             |
+                                  └──────────────────────────────────────-──┘
                                           │
                                           │ 5. Mission Control subscribes
                                           ▼
