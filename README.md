@@ -38,15 +38,37 @@ Download Go from https://go.dev/dl/
 
 ## Project Structure
 ```
-├── commander/
-│   └── main.go
-|   └── Dockerfile
-├── soldier/
-│   └── main.go
-|   └── Dockerfile
+mission_control/
+│
 ├── docker-compose.yaml
+│
+├── commander/
+│   ├── config/config.go
+│   ├── middleware/jwt.go     // JWT generation + validation
+│   ├── store/store.go        // manages the in-memory mission storage 
+│   ├── handlers/login.go     // mission handlers (POST + GET)
+|   |        └── missions.go
+│   ├── rabbitmq/rabbit.go    // publishing + consuming logic
+│   ├── models/mission.go     // Mission struct
+|   ├── main.go         
+│   ├── go.mod
+│   ├── go.sum
+│   └── Dockerfile
+│
+├── soldier/
+│   ├── config/config.go
+│   ├── auth/jwt.go                // verify JWT before consuming
+|   ├── execute_mission/soldier.go
+│   ├── rabbitmq/rabbitmq.go       // queues & publisher
+│   ├── executor.go                // mission execution logic
+│   ├── models/model.go            // Mission struct
+|   ├── main.go
+│   ├── go.mod
+│   ├── go.sum
+│   └── Dockerfile
+│
 └── README.md
-└── test_missions.bat
+
 ```
 
 #### Run Commander
