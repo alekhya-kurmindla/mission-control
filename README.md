@@ -158,6 +158,8 @@ Authentication is handled using JWT-based access tokens paired with long-lived r
 
 The Mission Control project includes a comprehensive suite of unit tests that validate the core functionality of both the Commander and Soldier services. These tests cover mission creation, mission retrieval, in-memory state management, and JWT-based authentication. By mocking external dependencies such as RabbitMQ channels, the test suite verifies message publishing, status propagation, and error handling without requiring the actual broker to be running. This ensures that each component behaves correctly in isolation and adheres to expected API contracts.
 
+<img width="898" height="172" alt="image" src="https://github.com/user-attachments/assets/eb30dff4-73dd-4c3e-8b07-26e90c388474" />
+
 #### Run Commander
 ```
 go run commander/main.go
@@ -171,20 +173,31 @@ RUN docker
 ```
 docoker-compose up
 ```
-<img width="1573" height="775" alt="image" src="https://github.com/user-attachments/assets/31bf2b08-f7c8-4b0c-9f30-1dbc2ad36b17" />
-
-<img width="1369" height="635" alt="image" src="https://github.com/user-attachments/assets/a4ed9562-e74a-421e-809a-1fa1c0bffa04" />  
+<table>
+    <tr>
+        <td><img width="1573" height="775" alt="image" src="https://github.com/user-attachments/assets/31bf2b08-f7c8-4b0c-9f30-1dbc2ad36b17" /></td>
+    </tr>
+     <tr>
+        <td><img width="1369" height="635" alt="image" src="https://github.com/user-attachments/assets/a4ed9562-e74a-421e-809a-1fa1c0bffa04" />  </td>
+    </tr>
+     <tr>
+        <td><img width="1530" height="861" alt="image" src="https://github.com/user-attachments/assets/19ff486a-62f8-4173-8c53-91166831c4f0" /></td>
+    </tr>
+</table>
 
 ### Execution logs
+<img width="1034" height="464" alt="image" src="https://github.com/user-attachments/assets/99e796ea-f075-42f3-b3ce-eeafdaaa8b0c" />
 
 #### Container logs
-<img width="1613" height="380" alt="image" src="https://github.com/user-attachments/assets/f29ceabd-37b0-4a81-b638-8a44c69e22ff" />
+<img width="714" height="377" alt="image" src="https://github.com/user-attachments/assets/93ffc817-84bd-4255-8663-7315d6502a38" />
+
 
 #### Login
 <img width="1098" height="730" alt="image" src="https://github.com/user-attachments/assets/a6046a0b-9c7b-4dfb-ac0f-c7821b5f432a" />
 
 #### Post an order
-<img width="1082" height="741" alt="image" src="https://github.com/user-attachments/assets/62db84d0-4982-4618-a6dd-b2a94ed85197" />
+<img width="1070" height="662" alt="image" src="https://github.com/user-attachments/assets/da75dbf1-eca8-45a1-b521-859b689a5634" />
+
 
 #### Verify the order status
 <img width="1072" height="751" alt="image" src="https://github.com/user-attachments/assets/063bd3d4-2464-402e-8653-46b76f014f1c" />
