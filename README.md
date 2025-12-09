@@ -119,6 +119,7 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
     </tr>
 </table>
 
+<img width="1369" height="635" alt="image" src="https://github.com/user-attachments/assets/a4ed9562-e74a-421e-809a-1fa1c0bffa04" />
 
 
 ## Mission Control – Flow Diagram
