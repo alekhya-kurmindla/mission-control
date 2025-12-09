@@ -193,7 +193,8 @@ docoker-compose up
 
 
 #### Login
-<img width="1098" height="730" alt="image" src="https://github.com/user-attachments/assets/a6046a0b-9c7b-4dfb-ac0f-c7821b5f432a" />
+<img width="1054" height="830" alt="image" src="https://github.com/user-attachments/assets/0b0fc10b-fff6-4c14-8472-cd3f397f85dc" />
+
 
 #### Post an order
 <img width="1070" height="662" alt="image" src="https://github.com/user-attachments/assets/da75dbf1-eca8-45a1-b521-859b689a5634" />
