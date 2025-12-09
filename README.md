@@ -284,10 +284,6 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
 
 <img width="4009" height="4411" alt="dataflow" src="https://github.com/user-attachments/assets/ee20c293-c43a-401d-a8f8-0ddc12f21482" />
 
-### Container Architecture 
-
-<img width="4850" height="2580" alt="container_architecture" src="https://github.com/user-attachments/assets/399d5f5b-8243-4cca-98b0-b9419f1137d6" />
-
 ### Execution logs
 
 #### Container logs
