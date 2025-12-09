@@ -56,13 +56,19 @@ mission_control/
 │
 └── README.md
 ```
-1.Design diagram
+### Design diagram
 
+<img width="670" height="531" alt="design_diagram drawio" src="https://github.com/user-attachments/assets/8343548e-cfd3-4149-a101-14797d9b44c0" />
 
-2.Container/Deployment Architecture Diagram 
+## JWT Authentication
 
+JWT is validated before soldier executes any mission.
 
-c:\Users\admin\Downloads\deepseek_mermaid_20251209_6c01f8.png
+## Design Rationale
+
+The architecture adopts RabbitMQ as the core message broker to ensure reliable, decoupled communication between the Commander service and multiple Soldier workers. RabbitMQ was selected for its durability guarantees, built-in acknowledgment model, routing flexibility, and strong support for distributed worker patterns. This allows mission commands to be processed asynchronously, enables horizontal scaling of Soldiers, and ensures no mission is lost even during service restarts. The system’s concurrency model leverages Go’s goroutines and channel-driven worker logic, providing lightweight parallel processing and predictable performance under load, making it well-suited for high-throughput, event-driven workloads.
+
+Authentication is handled using JWT-based access tokens paired with long-lived refresh tokens to balance security with usability. Short-lived access tokens minimize risk exposure, while refresh tokens allow clients to re-authenticate without storing credentials or repeatedly logging in. This stateless authentication model reduces server-side complexity and integrates cleanly with the Commander’s API gateway responsibilities. Together, these choices create a scalable, fault-tolerant, and secure system optimized for real-time mission dispatching and status tracking.
 
 ## Mission Control – Flow Diagram
 
@@ -128,153 +134,6 @@ c:\Users\admin\Downloads\deepseek_mermaid_20251209_6c01f8.png
                            │ (IN_PROGRESS/FAILED/OK) │
                            └─────────────────────────┘
 
-
-## 1. Commander's Camp Service
-
-```
-┌─────────────────────────────────────────────┐
-│           COMMANDER'S CAMP SERVICE          │
-├─────────────────────────────────────────────┤
-│  API Layer:                                 │
-│  • REST API (Port: 8080)                    │
-│    - POST /missions                         │
-│    - GET /missions/{id}                     │
-│    - POST /login (for workers)              │
-│                                             │
-│  Business Logic:                            │
-│  • Mission Manager                          │
-│  • Status Tracker                           │
-│  • Auth Token Issuer                        │
-│                                             │
-│  Data Layer:                                │
-│  • In-Memory Store /Map                     │
-│    - Mission Status Cache                   │
-│    - Token Registry                         │
-└─────────────────────────────────────────────┘
-```
-
-### 2. Central Communications Hub (Message Queue)
-
-```
-┌─────────────────────────────────────────────┐
-│         CENTRAL COMMUNICATIONS HUB          │
-├─────────────────────────────────────────────┤
-│  Message Queues:                            │
-│  • orders_queue (FANOUT)                    │
-│    - New mission orders                     │
-│    - Persisted for reliability              │
-│                                             │
-│  • status_queue (PUB/SUB)                   │
-│    - Status updates from soldiers           │
-│    - Real-time updates                      │
-│                                             │                                       │
-│  Security:                                  │
-│  • TLS/SSL enabled                          │
-│  • Authentication required                  │
-└─────────────────────────────────────────────┘
-
-```
-### 3. 3. Soldier Worker Service
-
-```
-┌─────────────────────────────────────────────┐
-│              SOLDIER WORKER                 │
-├─────────────────────────────────────────────┤
-│  Message Consumer:                          │
-│  • Polls orders_queue                       │
-│  • Graceful failure handling                │
-│  • Connection retry logic                   │
-│                                             │
-│  Mission Executor:                          │
-│  • Thread Pool (configurable)               │
-│  • Mission simulation                       │
-│  • Random delay (5-15s)                     │
-│  • Success rate (90%)                       │
-│                                             │
-│  Status Reporter:                           │
-│  • Publishes to status_queue                |
-│                                             │
-│  Auth Manager:                              │
-│  • Token management                         │
-│  • Secure token storage                     │
-└─────────────────────────────────────────────┘
-
-```
-
-### Data Flow Sequence
-
-<img width="4009" height="4411" alt="dataflow" src="https://github.com/user-attachments/assets/ee20c293-c43a-401d-a8f8-0ddc12f21482" />
-
-### Container Architecture 
-
-<img width="4850" height="2580" alt="container_architecture" src="https://github.com/user-attachments/assets/399d5f5b-8243-4cca-98b0-b9419f1137d6" />
-
-### Execution logs
-
-#### Container logs
-<img width="1613" height="380" alt="image" src="https://github.com/user-attachments/assets/f29ceabd-37b0-4a81-b638-8a44c69e22ff" />
-
-#### Login
-<img width="1098" height="730" alt="image" src="https://github.com/user-attachments/assets/a6046a0b-9c7b-4dfb-ac0f-c7821b5f432a" />
-
-#### Post an order
-<img width="1082" height="741" alt="image" src="https://github.com/user-attachments/assets/62db84d0-4982-4618-a6dd-b2a94ed85197" />
-
-#### Verify the order status
-<img width="1072" height="751" alt="image" src="https://github.com/user-attachments/assets/063bd3d4-2464-402e-8653-46b76f014f1c" />
-
-
-## Overview of the Unit Testing Strategy
-
-The Mission Control project includes a comprehensive suite of unit tests that validate the core functionality of both the Commander and Soldier services. These tests cover mission creation, mission retrieval, in-memory state management, and JWT-based authentication. By mocking external dependencies such as RabbitMQ channels, the test suite verifies message publishing, status propagation, and error handling without requiring the actual broker to be running. This ensures that each component behaves correctly in isolation and adheres to expected API contracts.
-
-
-#### Run Commander
-
-```
-go run commander/main.go
-```
-
-#### Run Soldier
-
-```
-go run soldier/main.go
-```
-
-#### Docker compose
-RUN docker
-```
-docoker-compose up
-```
-
-<img width="1573" height="775" alt="image" src="https://github.com/user-attachments/assets/31bf2b08-f7c8-4b0c-9f30-1dbc2ad36b17" />
-
-## API Documentation
-<table>
-    <tr>
-        <td><img width="1421" height="803" alt="image" src="https://github.com/user-attachments/assets/adf1a313-72e7-43c6-bc86-70af23413afb" /></td>
-    </tr>
-     <tr>
-        <td><img width="1278" height="811" alt="image" src="https://github.com/user-attachments/assets/f00ac572-e327-4328-ac26-295f6066ba89" /></td>
-    </tr>
-     <tr>
-        <td><img width="1299" height="706" alt="image" src="https://github.com/user-attachments/assets/70d575db-01d7-40c3-921c-ddf7e7b489ae" /></td>
-    </tr>
-     <tr>
-        <td><img width="1252" height="267" alt="image" src="https://github.com/user-attachments/assets/e046848d-ae9e-452d-8a94-e92f63dea93e" /></td>
-    </tr>
-</table>
-
-## JWT Authentication
-
-JWT is validated before soldier executes any mission.
-
-## Design Rationale
-
-RabbitMQ chosen for simple command-response behavior. Go concurrency
-ensures missions run in parallel. JWT prevents unauthorized orders.
-
-
 ### Mission Status Flow
 <table>
     <tr>
@@ -293,9 +152,72 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
         <td><b>FAILED</b></td>
         <td>Mission execution was unsuccessful</td>
     </tr>
+</table>                      
+
+## Overview of the Unit Testing Strategy
+
+The Mission Control project includes a comprehensive suite of unit tests that validate the core functionality of both the Commander and Soldier services. These tests cover mission creation, mission retrieval, in-memory state management, and JWT-based authentication. By mocking external dependencies such as RabbitMQ channels, the test suite verifies message publishing, status propagation, and error handling without requiring the actual broker to be running. This ensures that each component behaves correctly in isolation and adheres to expected API contracts.
+
+<img width="898" height="172" alt="image" src="https://github.com/user-attachments/assets/eb30dff4-73dd-4c3e-8b07-26e90c388474" />
+
+#### Run Commander
+```
+go run commander/main.go
+```
+#### Run Soldier
+```
+go run soldier/main.go
+```
+#### Docker compose
+RUN docker
+```
+docoker-compose up
+```
+<table>
+    <tr>
+        <td><img width="1573" height="775" alt="image" src="https://github.com/user-attachments/assets/31bf2b08-f7c8-4b0c-9f30-1dbc2ad36b17" /></td>
+    </tr>
+     <tr>
+        <td><img width="1369" height="635" alt="image" src="https://github.com/user-attachments/assets/a4ed9562-e74a-421e-809a-1fa1c0bffa04" />  </td>
+    </tr>
+     <tr>
+        <td><img width="1530" height="861" alt="image" src="https://github.com/user-attachments/assets/19ff486a-62f8-4173-8c53-91166831c4f0" /></td>
+    </tr>
 </table>
 
+### Execution logs
+<img width="1034" height="464" alt="image" src="https://github.com/user-attachments/assets/99e796ea-f075-42f3-b3ce-eeafdaaa8b0c" />
 
+#### Container logs
+<img width="714" height="377" alt="image" src="https://github.com/user-attachments/assets/93ffc817-84bd-4255-8663-7315d6502a38" />
+
+
+#### Login
+<img width="1054" height="830" alt="image" src="https://github.com/user-attachments/assets/0b0fc10b-fff6-4c14-8472-cd3f397f85dc" />
+
+
+#### Post an order
+<img width="1070" height="662" alt="image" src="https://github.com/user-attachments/assets/da75dbf1-eca8-45a1-b521-859b689a5634" />
+
+
+#### Verify the order status
+<img width="1072" height="751" alt="image" src="https://github.com/user-attachments/assets/063bd3d4-2464-402e-8653-46b76f014f1c" />
+
+## API Documentation
+<table>
+    <tr>
+        <td><img width="1421" height="803" alt="image" src="https://github.com/user-attachments/assets/adf1a313-72e7-43c6-bc86-70af23413afb" /></td>
+    </tr>
+     <tr>
+        <td><img width="1278" height="811" alt="image" src="https://github.com/user-attachments/assets/f00ac572-e327-4328-ac26-295f6066ba89" /></td>
+    </tr>
+     <tr>
+        <td><img width="1299" height="706" alt="image" src="https://github.com/user-attachments/assets/70d575db-01d7-40c3-921c-ddf7e7b489ae" /></td>
+    </tr>
+     <tr>
+        <td><img width="1252" height="267" alt="image" src="https://github.com/user-attachments/assets/e046848d-ae9e-452d-8a94-e92f63dea93e" /></td>
+    </tr>
+</table>
 
 ### Technology
 
@@ -309,7 +231,6 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
 | **Worker Scaling**   | Docker Compose Replicas  | Offers straightforward horizontal scaling without needing complex orchestration tools like Kubernetes.         |
 
 
-
 ## AI Usage Policy
 
-AI used only for documenting, debugging, and readability improvements.
+AI is used solely for documentation, debugging assistance, and improving code readability.
