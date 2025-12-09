@@ -232,6 +232,25 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
 
 <img width="4850" height="2580" alt="container_architecture" src="https://github.com/user-attachments/assets/399d5f5b-8243-4cca-98b0-b9419f1137d6" />
 
+### Execution logs
+
+#### Container logs
+<img width="1613" height="380" alt="image" src="https://github.com/user-attachments/assets/f29ceabd-37b0-4a81-b638-8a44c69e22ff" />
+
+#### Login
+<img width="1098" height="730" alt="image" src="https://github.com/user-attachments/assets/a6046a0b-9c7b-4dfb-ac0f-c7821b5f432a" />
+
+#### Post an order
+<img width="1082" height="741" alt="image" src="https://github.com/user-attachments/assets/62db84d0-4982-4618-a6dd-b2a94ed85197" />
+
+#### Verify the order status
+<img width="1072" height="751" alt="image" src="https://github.com/user-attachments/assets/063bd3d4-2464-402e-8653-46b76f014f1c" />
+
+
+
+
+
+
 
 ## AI Usage Policy
 
