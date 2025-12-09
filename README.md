@@ -219,4 +219,4 @@ docoker-compose up
 
 ## AI Usage Policy
 
-AI is used solely for documentation, debugging assistance, and improving code readability. It must not generate production logic, core algorithms, or security-sensitive code. All AI-suggested changes require manual review and approval before integration.
+AI is used solely for documentation, debugging assistance, and improving code readability.
