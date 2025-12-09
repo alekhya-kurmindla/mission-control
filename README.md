@@ -57,7 +57,6 @@ docoker-compose up
 
 <img width="1573" height="775" alt="image" src="https://github.com/user-attachments/assets/31bf2b08-f7c8-4b0c-9f30-1dbc2ad36b17" />
 
-
 ## API Documentation
 <table>
     <tr>
@@ -86,6 +85,27 @@ JWT is validated before soldier executes any mission.
 
 RabbitMQ chosen for simple command-response behavior. Go concurrency
 ensures missions run in parallel. JWT prevents unauthorized orders.
+
+
+### Mission Status Flow
+<table>
+    <tr>
+        <td><b>QUEUED</b></td>
+        <td>Mission received and waiting for processing</td>
+    </tr>
+    <tr>
+        <td><b>IN_PROGRESS</b></td>
+        <td>Worker has started executing the mission</td>
+    </tr>
+    <tr>
+        <td><b>COMPLETED</b></td>
+        <td>Mission executed successfully</td>
+    </tr>
+    <tr>
+        <td><b>FAILED</b></td>
+        <td>Mission execution was unsuccessful</td>
+    </tr>
+</table>
 
 ## Mission Control – Flow Diagram
 
