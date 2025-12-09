@@ -9,19 +9,6 @@ Commander's Camp – Issues orders
 Soldier Units – Execute missions on the battlefield
 Central Communication Hub – A secure, internal message broker
 
-### Technology
-
-| Component            | Technology               | Rationale                                                                                                      |
-| -------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **API Framework**    | Golang (net/http)        | Fast, strongly typed, and ideal for building efficient, reliable backend APIs with minimal runtime overhead.   |
-| **Persistence**      | Global In-Memory Map     | Lightweight, zero-dependency storage for tracking mission states within the service instance.                  |
-| **Message Queue**    | RabbitMQ                 | Provides reliable message delivery, queue-based communication, and decoupling between API and worker services. |
-| **Containerization** | Docker                   | Ensures consistent environments, clean isolation, and simple deployment across machines.                       |
-| **Message Format**   | JSON                     | Human-readable, language-agnostic, and easy to encode/decode in Go.                                            |
-| **Worker Scaling**   | Docker Compose Replicas  | Offers straightforward horizontal scaling without needing complex orchestration tools like Kubernetes.         |
-
-
-
 ## Setup Instructions
 
 ### Install Go
@@ -69,46 +56,9 @@ mission_control/
 │
 └── README.md
 ```
+### Design diagram
 
-#### Run Commander
-
-```
-go run commander/main.go
-```
-
-#### Run Soldier
-
-```
-go run soldier/main.go
-```
-
-#### Docker compose
-RUN docker
-```
-docoker-compose up
-```
-
-<img width="1573" height="775" alt="image" src="https://github.com/user-attachments/assets/31bf2b08-f7c8-4b0c-9f30-1dbc2ad36b17" />
-
-## API Documentation
-<table>
-    <tr>
-        <td><img width="1421" height="803" alt="image" src="https://github.com/user-attachments/assets/adf1a313-72e7-43c6-bc86-70af23413afb" /></td>
-    </tr>
-     <tr>
-        <td><img width="1278" height="811" alt="image" src="https://github.com/user-attachments/assets/f00ac572-e327-4328-ac26-295f6066ba89" /></td>
-    </tr>
-     <tr>
-        <td><img width="1299" height="706" alt="image" src="https://github.com/user-attachments/assets/70d575db-01d7-40c3-921c-ddf7e7b489ae" /></td>
-    </tr>
-     <tr>
-        <td><img width="1252" height="267" alt="image" src="https://github.com/user-attachments/assets/e046848d-ae9e-452d-8a94-e92f63dea93e" /></td>
-    </tr>
-</table>
-
-
-
-
+<img width="670" height="531" alt="design_diagram drawio" src="https://github.com/user-attachments/assets/8343548e-cfd3-4149-a101-14797d9b44c0" />
 
 ## JWT Authentication
 
@@ -116,32 +66,9 @@ JWT is validated before soldier executes any mission.
 
 ## Design Rationale
 
-RabbitMQ chosen for simple command-response behavior. Go concurrency
-ensures missions run in parallel. JWT prevents unauthorized orders.
+The architecture adopts RabbitMQ as the core message broker to ensure reliable, decoupled communication between the Commander service and multiple Soldier workers. RabbitMQ was selected for its durability guarantees, built-in acknowledgment model, routing flexibility, and strong support for distributed worker patterns. This allows mission commands to be processed asynchronously, enables horizontal scaling of Soldiers, and ensures no mission is lost even during service restarts. The system’s concurrency model leverages Go’s goroutines and channel-driven worker logic, providing lightweight parallel processing and predictable performance under load, making it well-suited for high-throughput, event-driven workloads.
 
-
-### Mission Status Flow
-<table>
-    <tr>
-        <td><b>QUEUED</b></td>
-        <td>Mission received and waiting for processing</td>
-    </tr>
-    <tr>
-        <td><b>IN_PROGRESS</b></td>
-        <td>Worker has started executing the mission</td>
-    </tr>
-    <tr>
-        <td><b>COMPLETED</b></td>
-        <td>Mission executed successfully</td>
-    </tr>
-    <tr>
-        <td><b>FAILED</b></td>
-        <td>Mission execution was unsuccessful</td>
-    </tr>
-</table>
-
-<img width="1369" height="635" alt="image" src="https://github.com/user-attachments/assets/a4ed9562-e74a-421e-809a-1fa1c0bffa04" />
-
+Authentication is handled using JWT-based access tokens paired with long-lived refresh tokens to balance security with usability. Short-lived access tokens minimize risk exposure, while refresh tokens allow clients to re-authenticate without storing credentials or repeatedly logging in. This stateless authentication model reduces server-side complexity and integrates cleanly with the Commander’s API gateway responsibilities. Together, these choices create a scalable, fault-tolerant, and secure system optimized for real-time mission dispatching and status tracking.
 
 ## Mission Control – Flow Diagram
 
@@ -207,82 +134,46 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
                            │ (IN_PROGRESS/FAILED/OK) │
                            └─────────────────────────┘
 
+### Mission Status Flow
+<table>
+    <tr>
+        <td><b>QUEUED</b></td>
+        <td>Mission received and waiting for processing</td>
+    </tr>
+    <tr>
+        <td><b>IN_PROGRESS</b></td>
+        <td>Worker has started executing the mission</td>
+    </tr>
+    <tr>
+        <td><b>COMPLETED</b></td>
+        <td>Mission executed successfully</td>
+    </tr>
+    <tr>
+        <td><b>FAILED</b></td>
+        <td>Mission execution was unsuccessful</td>
+    </tr>
+</table>                      
 
-## 1. Commander's Camp Service
+## Overview of the Unit Testing Strategy
 
+The Mission Control project includes a comprehensive suite of unit tests that validate the core functionality of both the Commander and Soldier services. These tests cover mission creation, mission retrieval, in-memory state management, and JWT-based authentication. By mocking external dependencies such as RabbitMQ channels, the test suite verifies message publishing, status propagation, and error handling without requiring the actual broker to be running. This ensures that each component behaves correctly in isolation and adheres to expected API contracts.
+
+#### Run Commander
 ```
-┌─────────────────────────────────────────────┐
-│           COMMANDER'S CAMP SERVICE          │
-├─────────────────────────────────────────────┤
-│  API Layer:                                 │
-│  • REST API (Port: 8080)                    │
-│    - POST /missions                         │
-│    - GET /missions/{id}                     │
-│    - POST /login (for workers)              │
-│                                             │
-│  Business Logic:                            │
-│  • Mission Manager                          │
-│  • Status Tracker                           │
-│  • Auth Token Issuer                        │
-│                                             │
-│  Data Layer:                                │
-│  • In-Memory Store /Map                     │
-│    - Mission Status Cache                   │
-│    - Token Registry                         │
-└─────────────────────────────────────────────┘
+go run commander/main.go
 ```
-
-### 2. Central Communications Hub (Message Queue)
-
+#### Run Soldier
 ```
-┌─────────────────────────────────────────────┐
-│         CENTRAL COMMUNICATIONS HUB          │
-├─────────────────────────────────────────────┤
-│  Message Queues:                            │
-│  • orders_queue (FANOUT)                    │
-│    - New mission orders                     │
-│    - Persisted for reliability              │
-│                                             │
-│  • status_queue (PUB/SUB)                   │
-│    - Status updates from soldiers           │
-│    - Real-time updates                      │
-│                                             │                                       │
-│  Security:                                  │
-│  • TLS/SSL enabled                          │
-│  • Authentication required                  │
-└─────────────────────────────────────────────┘
-
+go run soldier/main.go
 ```
-### 3. 3. Soldier Worker Service
-
+#### Docker compose
+RUN docker
 ```
-┌─────────────────────────────────────────────┐
-│              SOLDIER WORKER                 │
-├─────────────────────────────────────────────┤
-│  Message Consumer:                          │
-│  • Polls orders_queue                       │
-│  • Graceful failure handling                │
-│  • Connection retry logic                   │
-│                                             │
-│  Mission Executor:                          │
-│  • Thread Pool (configurable)               │
-│  • Mission simulation                       │
-│  • Random delay (5-15s)                     │
-│  • Success rate (90%)                       │
-│                                             │
-│  Status Reporter:                           │
-│  • Publishes to status_queue                |
-│                                             │
-│  Auth Manager:                              │
-│  • Token management                         │
-│  • Secure token storage                     │
-└─────────────────────────────────────────────┘
-
+docoker-compose up
 ```
+<img width="1573" height="775" alt="image" src="https://github.com/user-attachments/assets/31bf2b08-f7c8-4b0c-9f30-1dbc2ad36b17" />
 
-### Data Flow Sequence
-
-<img width="4009" height="4411" alt="dataflow" src="https://github.com/user-attachments/assets/ee20c293-c43a-401d-a8f8-0ddc12f21482" />
+<img width="1369" height="635" alt="image" src="https://github.com/user-attachments/assets/a4ed9562-e74a-421e-809a-1fa1c0bffa04" />  
 
 ### Execution logs
 
@@ -298,12 +189,34 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
 #### Verify the order status
 <img width="1072" height="751" alt="image" src="https://github.com/user-attachments/assets/063bd3d4-2464-402e-8653-46b76f014f1c" />
 
+## API Documentation
+<table>
+    <tr>
+        <td><img width="1421" height="803" alt="image" src="https://github.com/user-attachments/assets/adf1a313-72e7-43c6-bc86-70af23413afb" /></td>
+    </tr>
+     <tr>
+        <td><img width="1278" height="811" alt="image" src="https://github.com/user-attachments/assets/f00ac572-e327-4328-ac26-295f6066ba89" /></td>
+    </tr>
+     <tr>
+        <td><img width="1299" height="706" alt="image" src="https://github.com/user-attachments/assets/70d575db-01d7-40c3-921c-ddf7e7b489ae" /></td>
+    </tr>
+     <tr>
+        <td><img width="1252" height="267" alt="image" src="https://github.com/user-attachments/assets/e046848d-ae9e-452d-8a94-e92f63dea93e" /></td>
+    </tr>
+</table>
 
+### Technology
 
-
-
+| Component            | Technology               | Rationale                                                                                                      |
+| -------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| **API Framework**    | Golang (net/http)        | Fast, strongly typed, and ideal for building efficient, reliable backend APIs with minimal runtime overhead.   |
+| **Persistence**      | Global In-Memory Map     | Lightweight, zero-dependency storage for tracking mission states within the service instance.                  |
+| **Message Queue**    | RabbitMQ                 | Provides reliable message delivery, queue-based communication, and decoupling between API and worker services. |
+| **Containerization** | Docker                   | Ensures consistent environments, clean isolation, and simple deployment across machines.                       |
+| **Message Format**   | JSON                     | Human-readable, language-agnostic, and easy to encode/decode in Go.                                            |
+| **Worker Scaling**   | Docker Compose Replicas  | Offers straightforward horizontal scaling without needing complex orchestration tools like Kubernetes.         |
 
 
 ## AI Usage Policy
 
-AI used only for documenting, debugging, and readability improvements.
+AI is used solely for documentation, debugging assistance, and improving code readability. It must not generate production logic, core algorithms, or security-sensitive code. All AI-suggested changes require manual review and approval before integration.
