@@ -60,6 +60,20 @@ mission_control/
 
 <img width="670" height="531" alt="design_diagram drawio" src="https://github.com/user-attachments/assets/8343548e-cfd3-4149-a101-14797d9b44c0" />
 
+
+### Technology
+
+| Component            | Technology               | Rationale                                                                                                      |
+| -------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| **API Framework**    | Golang (net/http)        | Fast, strongly typed, and ideal for building efficient, reliable backend APIs with minimal runtime overhead.   |
+| **Persistence**      | Global In-Memory Map     | Lightweight, zero-dependency storage for tracking mission states within the service instance.                  |
+| **Message Queue**    | RabbitMQ                 | Provides reliable message delivery, queue-based communication, and decoupling between API and worker services. |
+| **Containerization** | Docker                   | Ensures consistent environments, clean isolation, and simple deployment across machines.                       |
+| **Message Format**   | JSON                     | Human-readable, language-agnostic, and easy to encode/decode in Go.                                            |
+| **Worker Scaling**   | Docker Compose Replicas  | Offers straightforward horizontal scaling without needing complex orchestration tools like Kubernetes.         |
+
+
+
 ## JWT Authentication
 
 JWT is validated before soldier executes any mission.
@@ -218,18 +232,6 @@ docoker-compose up
         <td><img width="1252" height="267" alt="image" src="https://github.com/user-attachments/assets/e046848d-ae9e-452d-8a94-e92f63dea93e" /></td>
     </tr>
 </table>
-
-### Technology
-
-| Component            | Technology               | Rationale                                                                                                      |
-| -------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **API Framework**    | Golang (net/http)        | Fast, strongly typed, and ideal for building efficient, reliable backend APIs with minimal runtime overhead.   |
-| **Persistence**      | Global In-Memory Map     | Lightweight, zero-dependency storage for tracking mission states within the service instance.                  |
-| **Message Queue**    | RabbitMQ                 | Provides reliable message delivery, queue-based communication, and decoupling between API and worker services. |
-| **Containerization** | Docker                   | Ensures consistent environments, clean isolation, and simple deployment across machines.                       |
-| **Message Format**   | JSON                     | Human-readable, language-agnostic, and easy to encode/decode in Go.                                            |
-| **Worker Scaling**   | Docker Compose Replicas  | Offers straightforward horizontal scaling without needing complex orchestration tools like Kubernetes.         |
-
 
 ## AI Usage Policy
 
