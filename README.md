@@ -9,6 +9,18 @@ Commander's Camp – Issues orders
 Soldier Units – Execute missions on the battlefield
 Central Communication Hub – A secure, internal message broker
 
+### Technology
+
+| Component            | Technology               | Rationale                                                                                                      |
+| -------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| **API Framework**    | Golang (net/http)        | Fast, strongly typed, and ideal for building efficient, reliable backend APIs with minimal runtime overhead.   |
+| **Persistence**      | Global In-Memory Map     | Lightweight, zero-dependency storage for tracking mission states within the service instance.                  |
+| **Message Queue**    | RabbitMQ                 | Provides reliable message delivery, queue-based communication, and decoupling between API and worker services. |
+| **Containerization** | Docker                   | Ensures consistent environments, clean isolation, and simple deployment across machines.                       |
+| **Message Format**   | JSON                     | Human-readable, language-agnostic, and easy to encode/decode in Go.                                            |
+| **Worker Scaling**   | Docker Compose Replicas  | Offers straightforward horizontal scaling without needing complex orchestration tools like Kubernetes.         |
+
+
 
 ## Setup Instructions
 
@@ -37,22 +49,25 @@ Download Go from https://go.dev/dl/
 └── test_missions.bat
 ```
 
-### Run Commander
+#### Run Commander
 
+```
 go run commander/main.go
+```
 
-### Run Soldier
+#### Run Soldier
 
+```
 go run soldier/main.go
+```
 
-### Docker compose
+#### Docker compose
 RUN docker
 ```
 docoker-compose up
 ```
 
 <img width="1573" height="775" alt="image" src="https://github.com/user-attachments/assets/31bf2b08-f7c8-4b0c-9f30-1dbc2ad36b17" />
-
 
 ## API Documentation
 <table>
@@ -83,6 +98,29 @@ JWT is validated before soldier executes any mission.
 RabbitMQ chosen for simple command-response behavior. Go concurrency
 ensures missions run in parallel. JWT prevents unauthorized orders.
 
+
+### Mission Status Flow
+<table>
+    <tr>
+        <td><b>QUEUED</b></td>
+        <td>Mission received and waiting for processing</td>
+    </tr>
+    <tr>
+        <td><b>IN_PROGRESS</b></td>
+        <td>Worker has started executing the mission</td>
+    </tr>
+    <tr>
+        <td><b>COMPLETED</b></td>
+        <td>Mission executed successfully</td>
+    </tr>
+    <tr>
+        <td><b>FAILED</b></td>
+        <td>Mission execution was unsuccessful</td>
+    </tr>
+</table>
+
+
+
 ## Mission Control – Flow Diagram
 
                            ┌─────────────────────────┐
@@ -101,29 +139,29 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
                                       ▼
                          ┌────────────────────────────────┐
                          │         RabbitMQ Queue         │
-                         │          orders_queue           │
-                         └────────────────┬────────────────┘
+                         │          orders_queue          │
+                         └────────────────┬───────────────┘
                                           │
                                           │ 3. Mission picked by Soldier
                                           ▼
                          ┌────────────────────────────────┐
                          │         Soldier Service        │
                          │   (execute_mission.go logic)   │
-                         └────────────────┬────────────────┘
+                         └────────────────┬───────────────┘
                                           │
-                                  ┌───────┴───────────────────────────────┐
+                                  ┌───────┴─────────────────────────────-──┐
                                   │ 3a. Publish "IN_PROGRESS" to RabbitMQ  │
-                                  │     status_queue                        │
-                                  └─────────────────────────────────────────┘
+                                  │     status_queue                       │
+                                  └────────────────────────────────────────┘
                                           │
                                           │ 4. Soldier executes mission
                                           │    • sleeps random 5–10 sec  
                                           │    • randomly completes/ fails  
                                           ▼
-                                  ┌────────────────────────────────────────┐
-                                  │ Publish final status (COMPLETED/FAILED)│
-                                  │             to status_queue             │
-                                  └────────────────────────────────────────┘
+                                  ┌───────────────────────────────────────-─┐
+                                  │ Publish final status (COMPLETED/FAILED) │
+                                  │             to status_queue             |
+                                  └──────────────────────────────────────-──┘
                                           │
                                           │ 5. Mission Control subscribes
                                           ▼
@@ -227,6 +265,25 @@ ensures missions run in parallel. JWT prevents unauthorized orders.
 ### Container Architecture 
 
 <img width="4850" height="2580" alt="container_architecture" src="https://github.com/user-attachments/assets/399d5f5b-8243-4cca-98b0-b9419f1137d6" />
+
+### Execution logs
+
+#### Container logs
+<img width="1613" height="380" alt="image" src="https://github.com/user-attachments/assets/f29ceabd-37b0-4a81-b638-8a44c69e22ff" />
+
+#### Login
+<img width="1098" height="730" alt="image" src="https://github.com/user-attachments/assets/a6046a0b-9c7b-4dfb-ac0f-c7821b5f432a" />
+
+#### Post an order
+<img width="1082" height="741" alt="image" src="https://github.com/user-attachments/assets/62db84d0-4982-4618-a6dd-b2a94ed85197" />
+
+#### Verify the order status
+<img width="1072" height="751" alt="image" src="https://github.com/user-attachments/assets/063bd3d4-2464-402e-8653-46b76f014f1c" />
+
+
+
+
+
 
 
 ## AI Usage Policy
