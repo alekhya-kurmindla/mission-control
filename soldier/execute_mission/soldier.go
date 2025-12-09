@@ -21,7 +21,7 @@ func ExecuteMission(m models.Mission, ch *amqp.Channel) {
 	body, _ := json.Marshal(status)
 	rabbitmq.PublishWithRetry(ch, rabbitmq.StatusQueue, body)
 
-	delay := time.Duration(5+rand.Intn(10)) * time.Second
+	delay := time.Duration(1 + rand.Intn(5)) * time.Second
 	time.Sleep(delay)
 
 	outcome := "COMPLETED"

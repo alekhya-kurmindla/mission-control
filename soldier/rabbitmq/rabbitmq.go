@@ -31,7 +31,7 @@ func SetupRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
-		rabbitmqURL = "amqp://guest:guest@localhost:5672" // fallback
+		rabbitmqURL = "amqp://guest:guest@localhost:5672/myvhost" // fallback
 	}
 	conn, err := amqp.Dial(rabbitmqURL)
 

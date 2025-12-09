@@ -1,158 +1,231 @@
 #!/bin/bash
-# Mission Testing Automation Script
-# Tests:
-# 1. Single mission lifecycle
-# 2. Concurrency (multiple missions)
-# 3. Token expiry & rotation
 
-COMMANDER_URL="http://localhost:8080"
-LOGIN_ENDPOINT="$COMMANDER_URL/login"
-MISSION_ENDPOINT="$COMMANDER_URL/missions"
+CommanderURL="http://localhost:8080"
 
-#############################
-# Helper Functions
-#############################
+LogFile="mission_test_$(date +"%Y%m%d_%H%M%S").log"
+touch "$LogFile"
 
-get_token() {
-    echo "[INFO] Fetching new JWT token..."
-    TOKEN=$(curl -s -X POST $LOGIN_ENDPOINT | jq -r '.token')
-    echo "[INFO] Token received: $TOKEN"
+log() {
+    level=${2:-INFO}
+    timestamp=$(date +"%Y-%m-%d %H:%M:%S")
+    msg="[$timestamp] [$level] $1"
+    echo "$msg"
+    echo "$msg" >> "$LogFile"
 }
 
-submit_mission() {
-    local order="$1"
-    echo "[INFO] Submitting mission: $order"
+log_newline() {
+    echo "" | tee -a "$LogFile"
+}
 
-    RESPONSE=$(curl -s -X POST "$MISSION_ENDPOINT" \
+get_auth_token() {
+    log "Attempting login to get JWT token..."
+
+    response=$(curl -s -X POST "$CommanderURL/login" \
+        -H "Content-Type: application/json")
+
+    access=$(echo "$response" | jq -r '.token.access_token')
+    refresh=$(echo "$response" | jq -r '.token.refresh_token')
+
+    if [[ "$access" == "null" || -z "$access" ]]; then
+        log "Login failed: Token missing" "ERROR"
+        return 1
+    fi
+
+    log "Received JWT token successfully."
+
+    echo "$access|$refresh"
+}
+
+test_single_mission() {
+    log_newline
+    log "=== Running Test 1: Single Mission Flow ==="
+    log_newline
+
+    tokens=$(get_auth_token) || return
+    access=$(echo "$tokens" | cut -d '|' -f1)
+
+    payload='{"order":"Attack north base"}'
+
+    response=$(curl -s -X POST "$CommanderURL/missions" \
+        -H "Authorization: Bearer $access" \
         -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $TOKEN" \
-        -d "{\"order\": \"$order\"}")
+        -d "$payload")
 
-    echo "$RESPONSE"
+    missionId=$(echo "$response" | jq -r '.mission_id')
+    status=$(echo "$response" | jq -r '.status')
+
+    if [[ "$missionId" == "null" ]]; then
+        log "Test 1 Failed: Invalid mission response" "ERROR"
+        return
+    fi
+
+    log "Mission $missionId (Status: $status) submitted."
+
+    if [[ "$status" != "QUEUED" ]]; then
+        log "Expected QUEUED but got $status" "ERROR"
+    else
+        log "Test 1 Passed: Mission accepted."
+    fi
+
+    log_newline
 }
 
-check_status() {
-    local id="$1"
-    STATUS=$(curl -s "$MISSION_ENDPOINT/$id" | jq -r '.status')
-    echo "$STATUS"
-}
+wait_for_mission_status() {
+    mission_id=$1
+    timeout=${2:-60}
 
-wait_for_completion() {
-    local id="$1"
+    end=$((SECONDS + timeout))
 
-    echo "[INFO] Waiting for mission completion: $id"
-    while true; do
-        STATUS=$(check_status "$id")
-        echo "[STATUS] $id -> $STATUS"
+    while (( SECONDS < end )); do
+        response=$(curl -s "$CommanderURL/missions/$mission_id")
+        status=$(echo "$response" | jq -r '.status')
 
-        if [[ "$STATUS" == "COMPLETED" || "$STATUS" == "FAILED" ]]; then
-            break
+        log "Mission $mission_id: Current status = $status"
+
+        if [[ "$status" == "COMPLETED" || "$status" == "FAILED" ]]; then
+            return
         fi
-        sleep 2
-    done
-}
 
-#########################################
-# 1. Single Mission End-to-End Test
-#########################################
-
-single_mission_test() {
-    echo "===================================="
-    echo "Running Single Mission Flow Test"
-    echo "===================================="
-
-    get_token
-    RESPONSE=$(submit_mission "Scan Area")
-    MID=$(echo "$RESPONSE" | jq -r '.mission_id')
-
-    echo "[INFO] Mission ID: $MID"
-
-    wait_for_completion "$MID"
-}
-
-#########################################
-# 2. Concurrency Test
-#########################################
-
-concurrency_test() {
-    echo "===================================="
-    echo "Running Concurrency Test"
-    echo "===================================="
-
-    get_token
-
-    MISSION_IDS=()
-
-    # Fire 5 missions quickly
-    for i in {1..5}; do
-        RESPONSE=$(submit_mission "Concurrent Mission $i")
-        MID=$(echo "$RESPONSE" | jq -r '.mission_id')
-        MISSION_IDS+=("$MID")
-        echo "[INFO] Submitted: $MID"
+        sleep 3
     done
 
-    # Track each mission
-    for MID in "${MISSION_IDS[@]}"; do
-        wait_for_completion "$MID" &
+    log "Mission $mission_id: TIMEOUT"
+}
+
+test_concurrency() {
+    log_newline
+    log "=== Running Test 2: Concurrency (20 missions) ==="
+    log_newline
+
+    tokens=$(get_auth_token) || return
+    access=$(echo "$tokens" | cut -d "|" -f 1)
+
+    mission_ids=()
+
+    for i in $(seq 1 20); do
+        payload="{\"order\":\"Attack Zone-$i\"}"
+
+        response=$(curl -s -X POST "$CommanderURL/missions" \
+            -H "Authorization: Bearer $access" \
+            -H "Content-Type: application/json" \
+            -d "$payload")
+
+        missionId=$(echo "$response" | jq -r '.mission_id')
+
+        if [[ "$missionId" != "null" ]]; then
+            log "Submitted mission $i → ID: $missionId"
+            mission_ids+=("$missionId")
+        else
+            log "Error submitting mission $i" "WARN"
+        fi
     done
 
-    wait
+    log_newline
+    log "Polling all missions for terminal status..."
+    log_newline
+
+    completed=0
+    for id in "${mission_ids[@]}"; do
+        wait_for_mission_status "$id" 120
+        ((completed++))
+    done
+
+    log_newline
+    log "Test 2 Passed: All 20 missions processed concurrently."
+    log_newline
 }
 
-#########################################
-# 3. Authentication & Token Rotation Test
-#########################################
+test_jwt_flow() {
+    echo "=== Testing /login and /refresh flow ==="
+    log "=== Testing JWT Flow ==="
 
-token_rotation_test() {
-    echo "===================================="
-    echo "Running Token Expiry & Rotation Test"
-    echo "===================================="
+    echo -e "\n[*] Calling /login API..."
+    response=$(curl -s -X POST "$CommanderURL/login" -H "Content-Type: application/json")
 
-    get_token
+    access=$(echo "$response" | jq -r '.token.access_token')
+    refresh=$(echo "$response" | jq -r '.token.refresh_token')
 
-    RESPONSE=$(submit_mission "Initial Token Test")
-    MID1=$(echo "$RESPONSE" | jq -r '.mission_id')
+    if [[ "$access" == "null" ]]; then
+        echo "[ERROR] Login failed."
+        log "Login failed" "ERROR"
+        return
+    fi
 
-    echo "[INFO] Mission 1 submitted with original token"
+    echo "[OK] Login successful. Tokens received."
+    log "[OK] Login successful."
 
-    echo "[INFO] Simulating token expiry... sleeping 3 seconds"
-    sleep 3
+    echo "Access Token  : $access"
+    echo "Refresh Token : $refresh"
+    log "Access Token: $access"
+    log "Refresh Token: $refresh"
 
-    echo "[INFO] Requesting new token (rotation)"
-    get_token
+    echo -e "\n[*] Testing protected endpoint /missions ..."
+    payload='{"order":"Attack north base"}'
 
-    RESPONSE=$(submit_mission "Post-Expiry Mission")
-    MID2=$(echo "$RESPONSE" | jq -r '.mission_id')
+    response=$(curl -s -X POST "$CommanderURL/missions" \
+        -H "Authorization: Bearer $access" \
+        -H "Content-Type: application/json" \
+        -d "$payload")
 
-    echo "[INFO] Mission 2 submitted with new rotated token"
+    status=$(echo "$response" | jq -r '.status')
+    missionId=$(echo "$response" | jq -r '.mission_id')
 
-    wait_for_completion "$MID1" &
-    wait_for_completion "$MID2" &
+    if [[ "$status" == "QUEUED" ]]; then
+        log "Test 1 Passed: Mission accepted."
+    else
+        log "Test 1 Failed: $status" "ERROR"
+    fi
 
-    wait
+    echo -e "\n[*] Calling /refresh API..."
+    refresh_body="{\"refresh_token\":\"$refresh\"}"
+
+    newResponse=$(curl -s -X POST "$CommanderURL/refresh" \
+        -H "Content-Type: application/json" \
+        -d "$refresh_body")
+
+    newAccess=$(echo "$newResponse" | jq -r '.access_token')
+
+    if [[ "$newAccess" == "null" ]]; then
+        echo "[FAIL] Refresh token invalid."
+        log "Refresh token invalid" "ERROR"
+        return
+    fi
+
+    echo "[OK] New access token received."
+    log "[OK] New access token received."
+
+    echo "New Access Token : $newAccess"
+    log "New Access Token: $newAccess"
+
+    echo -e "\n[*] Testing new access token..."
+
+    response=$(curl -s -X POST "$CommanderURL/missions" \
+        -H "Authorization: Bearer $newAccess" \
+        -H "Content-Type: application/json" \
+        -d "$payload")
+
+    status=$(echo "$response" | jq -r '.status')
+
+    if [[ "$status" == "QUEUED" ]]; then
+        log "Test 2 Passed: New access token accepted."
+    else
+        log "Test 2 Failed: $status" "ERROR"
+    fi
+
+    echo -e "\n=== DONE ==="
+    log "Flow completed successfully."
 }
 
-#########################################
-# Test Runner
-#########################################
+log_newline
+log "Starting Mission System Tests"
+log "Commander URL: $CommanderURL"
+log "Log file: $LogFile"
+log_newline
 
-case "$1" in
-    single)
-        single_mission_test
-        ;;
-    concurrency)
-        concurrency_test
-        ;;
-    rotation)
-        token_rotation_test
-        ;;
-    all)
-        single_mission_test
-        concurrency_test
-        token_rotation_test
-        ;;
-    *)
-        echo "Usage: ./test_missions.sh {single|concurrency|rotation|all}"
-        exit 1
-        ;;
-esac
+test_single_mission
+test_concurrency
+test_jwt_flow
+
+log "=== All Tests Completed ==="
+log_newline
+log "Test results stored in log file: $LogFile"

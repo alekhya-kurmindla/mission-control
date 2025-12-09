@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"mission_control/commander/models"
@@ -39,10 +40,12 @@ func CreateMissionHandler(ch *amqp.Channel) http.HandlerFunc {
 		if err := rabbitmq.PublishMission(ch, mission); err != nil {
 			http.Error(w, "Failed to publish mission", http.StatusInternalServerError)
 			return
+		}else{
+			log.Printf("Success: Mission has been published. mission_id: %v ", mission.ID)
 		}
 
 		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(map[string]string{"mission_id": mission.ID})
+		json.NewEncoder(w).Encode(map[string]string{"mission_id": mission.ID, "status": "QUEUED"})
 	}
 }
 

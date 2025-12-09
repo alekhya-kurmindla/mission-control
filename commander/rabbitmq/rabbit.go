@@ -22,7 +22,7 @@ func SetupRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 	//conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/myvhost")
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
-		rabbitmqURL = "amqp://guest:guest@localhost:5672" // fallback
+		rabbitmqURL = "amqp://guest:guest@localhost:5672/myvhost" // fallback
 	}
 	conn, err := amqp.Dial(rabbitmqURL)
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -53,7 +53,7 @@ func ConsumeStatusUpdates(ch *amqp.Channel) {
 			Status    string `json:"status"`
 		}
 		json.Unmarshal(d.Body, &statusUpdate)
-
+		log.Printf("DEBUG: consumed data: %v ", statusUpdate)
 		store.MissionsMutex.Lock()
 		if mission, ok := store.MissionsMap[statusUpdate.MissionID]; ok {
 			mission.Status = statusUpdate.Status

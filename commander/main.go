@@ -20,6 +20,8 @@ func main() {
 
 	// Public login endpoint
 	http.HandleFunc("/login", handlers.LoginHandler)
+	http.HandleFunc("/refresh", handlers.RefreshHandler)
+
 
 	// Protected endpoints
 	http.Handle("/missions", middleware.JWTMiddleware(http.HandlerFunc(handlers.CreateMissionHandler(ch))))
