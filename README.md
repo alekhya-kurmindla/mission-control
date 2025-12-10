@@ -172,7 +172,8 @@ Authentication is handled using JWT-based access tokens paired with long-lived r
 
 The Mission Control project includes a comprehensive suite of unit tests that validate the core functionality of both the Commander and Soldier services. These tests cover mission creation, mission retrieval, in-memory state management, and JWT-based authentication. By mocking external dependencies such as RabbitMQ channels, the test suite verifies message publishing, status propagation, and error handling without requiring the actual broker to be running. This ensures that each component behaves correctly in isolation and adheres to expected API contracts.
 
-<img width="898" height="172" alt="image" src="https://github.com/user-attachments/assets/eb30dff4-73dd-4c3e-8b07-26e90c388474" />
+<img width="1183" height="482" alt="image" src="https://github.com/user-attachments/assets/0f1a13d4-3d1f-479d-bbd1-b58b605ccd50" />
+
 
 #### Run Commander
 ```
