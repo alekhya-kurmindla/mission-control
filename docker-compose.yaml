@@ -28,14 +28,28 @@ services:
     environment:
       JWT_SECRET: supersecretkey123
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/myvhost
+      COMMANDER_API_KEY: "dummy_commander_secret_key"
+      SOLDIER_API_KEY: "dummy_soldier_secret_key"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://commander:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
 
   soldier:
     build: ./soldier
+    # Soldier waits for BOTH RabbitMQ and Commander to be healthy
     depends_on:
       rabbitmq:
         condition: service_healthy
+      commander:
+        condition: service_healthy
     environment:
       JWT_SECRET: supersecretkey123
+      SOLDIER_API_KEY: "dummy_soldier_secret_key"
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/myvhost
+      COMMANDER_URL: http://commander:8080
     restart: on-failure
     scale: 3

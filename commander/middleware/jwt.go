@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"mission_control/commander/config"
 	"net/http"
 	"strings"
@@ -27,6 +28,32 @@ func JWTMiddleware(next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Invalid or expired token"))
 			return
+		}
+
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+
+			// Example: read "sub"
+			user := claims["user"].(string)
+			role := claims["role"].(string)
+			
+			if user != config.COMMANDER_USER {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{
+				"message": "Only commander can perform this action",
+				})
+				return
+			}
+
+			if role != config.COMMANDER_ACCESS { 
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{
+				"message": "You do not have enough privileges to perform this action",
+				})
+				return
+			}
+
 		}
 
 		next.ServeHTTP(w, r)

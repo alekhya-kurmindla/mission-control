@@ -5,5 +5,14 @@ type Mission struct {
 	ID     string `json:"mission_id"`
 	Order  string `json:"order"`
 	Status string `json:"status"`
-	JWT    string `json:"jwt"`
 }
+
+type Token struct {
+	AccessToken    string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type LoginResponse struct {
+	Token Token `json:"token"`
+}
+

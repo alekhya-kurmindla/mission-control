@@ -25,22 +25,20 @@ func CreateMissionHandler(ch *amqp.Channel) http.HandlerFunc {
 			return
 		}
 
-		authHeader := r.Header.Get("Authorization")
 		mission := &models.Mission{
 			ID:     uuid.New().String(),
 			Order:  req.Order,
 			Status: "QUEUED",
-			JWT:    authHeader,
 		}
-
-		store.MissionsMutex.Lock()
-		store.MissionsMap[mission.ID] = mission
-		store.MissionsMutex.Unlock()
-
+		
 		if err := rabbitmq.PublishMission(ch, mission); err != nil {
 			http.Error(w, "Failed to publish mission", http.StatusInternalServerError)
 			return
-		}else{
+		} else {
+			// 	store.MissionsMutex.Lock()
+			// store.MissionsMap[mission.ID] = mission
+			// store.MissionsMutex.Unlock()
+			rabbitmq.UpdateMissionStatus(mission.ID, mission.Status)
 			log.Printf("Success: Mission has been published. mission_id: %v ", mission.ID)
 		}
 
@@ -56,9 +54,19 @@ func GetMissionHandler(w http.ResponseWriter, r *http.Request) {
 	defer store.MissionsMutex.RUnlock()
 
 	if mission, ok := store.MissionsMap[id]; ok {
-		mission.JWT = ""
 		json.NewEncoder(w).Encode(mission)
 		return
 	}
 	http.Error(w, "Mission not found", http.StatusNotFound)
+}
+
+func HealthHandler(w http.ResponseWriter, r *http.Request) {
+	resp := map[string]string{
+		"status":  "ok",
+		"service": "commander",
+		"message": "Service is healthy",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }

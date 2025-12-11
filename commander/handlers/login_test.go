@@ -1,10 +1,10 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -68,35 +68,50 @@ func TestGenerateJWT(t *testing.T) {
 	}
 
 }
-
 func TestLoginHandler(t *testing.T) {
-	// mock request + recorder
-	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader(""))
-	rr := httptest.NewRecorder()
+    // --- Prepare JSON Payload ---
+    payload := map[string]string{
+        "user":    "COMMANDER",
+        "api_key": "dummy_commander_secret_key",
+    }
 
-	LoginHandler(rr, req)
+    body, err := json.Marshal(payload)
+    if err != nil {
+        t.Fatalf("failed to marshal payload: %v", err)
+    }
 
-	if rr.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", rr.Code)
-	}
+    // --- Mock Request + Recorder ---
+    req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+    req.Header.Set("Content-Type", "application/json")
 
-	// parse body
-	var resp map[string]JWTResponse
-	err := json.Unmarshal(rr.Body.Bytes(), &resp)
-	if err != nil {
-		t.Fatalf("failed to decode login response: %v", err)
-	}
+    rr := httptest.NewRecorder()
 
-	tokenObj, ok := resp["token"]
-	if !ok {
-		t.Fatalf("response missing 'token' field")
-	}
+    // --- Call Handler ---
+    LoginHandler(rr, req)
 
-	if tokenObj.AccessToken == "" {
-		t.Fatalf("access token missing")
-	}
+    // --- Validate Response ---
+    if rr.Code != http.StatusOK {
+        t.Fatalf("expected status 200, got %d", rr.Code)
+    }
 
-	if tokenObj.RefreshToken == "" {
-		t.Fatalf("refresh token missing")
-	}
+    // --- Parse Response Body ---
+    var resp map[string]JWTResponse
+    err = json.Unmarshal(rr.Body.Bytes(), &resp)
+    if err != nil {
+        t.Fatalf("failed to decode login response: %v", err)
+    }
+
+    tokenObj, ok := resp["token"]
+    if !ok {
+        t.Fatalf("response missing 'token' field")
+    }
+
+    if tokenObj.AccessToken == "" {
+        t.Fatalf("access token missing")
+    }
+
+    if tokenObj.RefreshToken == "" {
+        t.Fatalf("refresh token missing")
+    }
 }
+

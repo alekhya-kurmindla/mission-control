@@ -27,17 +27,19 @@ function Log-Newline {
 function Get-AuthToken {
     Log "Attempting login to get JWT token..."
 
-    $loginPayload = @{} # Add username/password if needed
-
+    
+    $loginPayload = @{
+        user = "COMMANDER"
+        api_key = "dummy_commander_secret_key"
+    }
     try {
         $response = Invoke-RestMethod -Uri "$CommanderURL/login" -Method POST -ContentType "application/json" -Body ($loginPayload | ConvertTo-Json)
 
         if (-not $response.token.access_token) {
             throw "Login response did not contain token"
         }
-
         Log "Received JWT token successfully."
-        return $response.token
+        return $response
     }
     catch {
         Log "Login failed: $($_.Exception.Message)" "ERROR"
@@ -53,7 +55,8 @@ function Test-SingleMission {
     Log "=== Running Test 1: Single Mission Flow ==="
     Log-Newline
 
-    $token = Get-AuthToken
+    $loginResp = Get-AuthToken
+    $token = $loginResp.token.access_token
     $headers = @{ Authorization = "Bearer $token" }
 
     $payload = @{ order = "Attack north base" }
@@ -85,7 +88,9 @@ function Wait-ForMissionStatus {
         [string]$MissionId,
         [int]$TimeoutSeconds = 60
     )
-    $token = Get-AuthToken
+
+    $loginResp = Get-AuthToken
+    $token = $loginResp.token.access_token
     $headers = @{ Authorization = "Bearer $token" }
 
     $endTime = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -117,11 +122,12 @@ function Test-Concurrency {
     Log "=== Running Test 2: Concurrency (20 missions) ==="
     Log-Newline
 
-    $token = Get-AuthToken
+    $loginResp = Get-AuthToken
+    $token = $loginResp.token.access_token
     $headers = @{ Authorization = "Bearer $token" }
 
     $missions = @()
-    for ($i = 1; $i -le 20; $i++) {
+    for ($i = 1; $i -le 30; $i++) {
         $payload = @{ order = "Attack Zone-${i}" }
         try {
             $response = Invoke-RestMethod -Uri "$CommanderURL/missions" -Method POST -Headers $headers -ContentType "application/json" -Body ($payload | ConvertTo-Json)
@@ -138,59 +144,50 @@ function Test-Concurrency {
     Log-Newline
 
     $completed = 0
+    $missionSuccess = 0
+    $missionFailed = 0
     foreach ($id in $missions) {
         $status = Wait-ForMissionStatus -MissionId $id -TimeoutSeconds 120
         Log "Mission ${id}: final status = $status"
         if ($status -eq "COMPLETED" -or $status -eq "FAILED") {
             $completed++
         }
-    }
 
+        if ($status -eq "COMPLETED") {
+            $missionSuccess++
+        }
+
+        if ($status -eq "FAILED") {
+            $missionFailed++
+        }
+    }
     Log-Newline
     if ($completed -eq $missions.Count) {
+
+        Log-Newline
+        Write-Host "*************************************************************************"
+        Log-Newline
         Log "Test 2 Passed: All ${completed} missions processed concurrently."
+        Log "Amoung $($missions.Count) missions, Total ${missionSuccess} missions were successful and ${missionFailed} failed."
+        Log-Newline
+        Write-Host "*************************************************************************"
+        Log-Newline
     }
     else {
-        # Log "Test 2 Failed: ${completed} / $($missions.Count) completed."
-        Log "Test 2 Passed: All 20 missions processed concurrently."
+        Log "Test 2 Failed: ${completed} / $($missions.Count) completed."
     }
     Log-Newline
 }
-
 
 function Test-JWTFlow {
     Write-Host "=== Testing /login and /refresh flow ==="
     Log "=== Testing JWT Flow ==="
 
     Write-Host "`n[*] Calling /login API..."
-    try {
-        $loginResponse = Invoke-RestMethod -Uri "$CommanderURL/login" -Method POST -Headers @{
-            "Content-Type" = "application/json"
-        }
-
-        if ($loginResponse.token.access_token -and $loginResponse.token.refresh_token) {
-            Write-Host "[OK] Login successful. Tokens received."
-            Log "[OK] Login successful."
-        }
-        else {
-            Write-Host "[FAIL] Login API returned invalid token response."
-            Log "[FAIL] Login API returned invalid token response."
-            return
-        }
-
-    } catch {
-        Write-Host "[ERROR] Login failed: $($_.Exception.Message)"
-        Log "[ERROR] Login failed: $($_.Exception.Message)"
-        return
-    }
+    $loginResponse = Get-AuthToken
 
     $access  = $loginResponse.token.access_token
     $refresh = $loginResponse.token.refresh_token
-
-    Write-Host "Access Token  : $access"
-    Write-Host "Refresh Token : $refresh"
-    Log "Access Token: $access"
-    Log "Refresh Token: $refresh"
 
     Write-Host "`n[*] Testing protected endpoint /missions ..."
     $payload = @{ order = "Attack north base" }
@@ -205,10 +202,10 @@ function Test-JWTFlow {
             throw "Expected status QUEUED but got $($response.status)"
         }
 
-        Log "Test 1 Passed: Mission accepted."
+        Log "Test 3 Passed: Mission accepted."
     }
     catch {
-        Log "Test 1 Failed: $($_.Exception.Message)" "ERROR"
+        Log "Test 3 Failed: $($_.Exception.Message)" "ERROR"
     }
 
     Write-Host "`n[*] Calling /refresh API to get new token..."
@@ -218,8 +215,7 @@ function Test-JWTFlow {
         $newTokenResponse = Invoke-RestMethod -Uri "$CommanderURL/refresh" -Method POST -Body $refreshBody -Headers @{
             "Content-Type" = "application/json"
         }
-
-        if ($newTokenResponse.access_token) {
+        if ($newTokenResponse.token.access_token) {
             Write-Host "[OK] New access token received."
             Log "[OK] New access token received."
         }
@@ -228,7 +224,6 @@ function Test-JWTFlow {
             Log "[FAIL] Refresh API returned invalid response."
             return
         }
-
     }
     catch {
         Write-Host "[ERROR] Refresh token failed: $($_.Exception.Message)"
@@ -236,10 +231,7 @@ function Test-JWTFlow {
         return
     }
 
-    $newAccess = $newTokenResponse.access_token
-
-    Write-Host "New Access Token : $newAccess"
-    Log "New Access Token: $newAccess"
+    $newAccess = $newTokenResponse.token.access_token
 
     Write-Host "`n[*] Testing new access token..."
     $headers = @{ Authorization = "Bearer $newAccess" }
@@ -254,32 +246,44 @@ function Test-JWTFlow {
             throw "Expected status QUEUED but got $($response.status)"
         }
 
-        Log "Test 2 Passed: New access token accepted."
+        Log "Test 4 Passed: New access token accepted."
     }
     catch {
-        Log "Test 2 Failed: $($_.Exception.Message)" "ERROR"
+        Log "Test 4 Failed: $($_.Exception.Message)" "ERROR"
     }
 
-    Write-Host "`n=== DONE ==="
     Log "Flow completed successfully."
 }
 
 
-# ----------------------------------------
-# Orchestration
-# ----------------------------------------
 Log-Newline
 Log "Starting Mission System Tests"
 Log "Commander URL: $CommanderURL"
 Log "Log file: $LogFile"
 Log-Newline
 
-Test-SingleMission
-Test-Concurrency
+Log-Newline
+Write-Host "--------------------------------START----------------------------------------"
+Write-Host "`n[*] Testing new access token and Refresh token."
+Write-Host "-----------------------------------------------------------------------------"
+Log-Newline
 Test-JWTFlow
 
+Log-Newline
+Write-Host "--------------------------------START----------------------------------------"
+Write-Host "`n[*] Testing Single mission."
+Write-Host "-----------------------------------------------------------------------------"
+Log-Newline
+Test-SingleMission
 
-Log "=== All Tests Completed ==="
+Log-Newline
+Write-Host "--------------------------------START----------------------------------------"
+Write-Host "`n[*] Testing Concurrency"
+Write-Host "-----------------------------------------------------------------------------"
+Log-Newline
+Test-Concurrency
+
+
+Log "=== All Tests are Completed ==="
 Log-Newline
 Log "Test results stored in log file: $LogFile"
-# Get-Content -Path $LogFile

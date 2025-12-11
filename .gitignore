@@ -1,1 +1,5 @@
 .env
+notes.txt
+*.exe
+*.log
+*.dump

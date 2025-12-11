@@ -21,8 +21,8 @@ func main() {
 	// Public login endpoint
 	http.HandleFunc("/login", handlers.LoginHandler)
 	http.HandleFunc("/refresh", handlers.RefreshHandler)
-
-
+	http.HandleFunc("/health", handlers.HealthHandler)
+	
 	// Protected endpoints
 	http.Handle("/missions", middleware.JWTMiddleware(http.HandlerFunc(handlers.CreateMissionHandler(ch))))
 	http.Handle("/missions/", middleware.JWTMiddleware(http.HandlerFunc(handlers.GetMissionHandler)))

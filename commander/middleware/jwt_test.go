@@ -18,7 +18,8 @@ func generateValidToken() string {
 	claims := jwt.MapClaims{
 		"exp": time.Now().Add(1 * time.Hour).Unix(),
 		"iat": time.Now().Unix(),
-		"sub": "test-user",
+		"user": config.COMMANDER_USER,
+		"role": config.COMMANDER_ACCESS,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

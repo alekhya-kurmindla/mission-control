@@ -30,8 +30,8 @@ func SetupRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 	ch, err := conn.Channel()
 	failOnError(err, "Failed to open a channel")
 
-	ch.QueueDeclare(OrdersQueue, false, false, false, false, nil)
-	ch.QueueDeclare(StatusQueue, false, false, false, false, nil)
+	ch.QueueDeclare(OrdersQueue, true, false, false, false, nil)
+	ch.QueueDeclare(StatusQueue, true, false, false, false, nil)
 
 	return conn, ch
 }
@@ -44,7 +44,9 @@ func failOnError(err error, msg string) {
 
 // Consumes status updates from the queue and updates mission map
 func ConsumeStatusUpdates(ch *amqp.Channel) {
-	msgs, err := ch.Consume(StatusQueue, "", true, false, false, false, nil)
+	
+	ch.Qos(1, 0, false) //Read only ONE unacknowledged message at a time from the producer.
+	msgs, err := ch.Consume(StatusQueue, "", false, false, false, false, nil)
 	failOnError(err, "Failed to register consumer")
 
 	for d := range msgs {
@@ -53,12 +55,23 @@ func ConsumeStatusUpdates(ch *amqp.Channel) {
 			Status    string `json:"status"`
 		}
 		json.Unmarshal(d.Body, &statusUpdate)
-		log.Printf("DEBUG: consumed data: %v ", statusUpdate)
-		store.MissionsMutex.Lock()
-		if mission, ok := store.MissionsMap[statusUpdate.MissionID]; ok {
-			mission.Status = statusUpdate.Status
+		log.Printf("DEBUG: ---->COMMANDER consumed MissionID: %v, Status: %v ", statusUpdate.MissionID, statusUpdate.Status)
+		UpdateMissionStatus(statusUpdate.MissionID, statusUpdate.Status)
+		d.Ack(false)
+	}
+}
+
+func UpdateMissionStatus(id, status string) {
+    store.MissionsMutex.Lock()
+    defer store.MissionsMutex.Unlock()
+
+    if mission, ok := store.MissionsMap[id]; ok {
+        mission.Status = status
+    }else {
+		store.MissionsMap[id] = &models.Mission{
+			ID: id,
+			Status: status,
 		}
-		store.MissionsMutex.Unlock()
 	}
 }
 

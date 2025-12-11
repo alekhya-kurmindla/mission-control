@@ -16,7 +16,6 @@ func TestGetMissionHandler_Success(t *testing.T) {
 		ID:     "abc123",
 		Order:  "Recon",
 		Status: "QUEUED",
-		JWT:    "Bearer secret_token",
 	}
 
 	store.MissionsMutex.Lock()
@@ -42,10 +41,6 @@ func TestGetMissionHandler_Success(t *testing.T) {
 
 	if resp.ID != "abc123" {
 		t.Fatalf("expected ID abc123, got %s", resp.ID)
-	}
-
-	if resp.JWT != "" {
-		t.Fatalf("expected JWT to be removed, got %s", resp.JWT)
 	}
 
 	if resp.Order != "Recon" {
