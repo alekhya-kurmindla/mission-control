@@ -60,6 +60,20 @@ mission_control/
 
 <img width="670" height="531" alt="design_diagram drawio" src="https://github.com/user-attachments/assets/8343548e-cfd3-4149-a101-14797d9b44c0" />
 
+
+### Technology
+
+| Component            | Technology               | Rationale                                                                                                      |
+| -------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| **API Framework**    | Golang (net/http)        | Fast, strongly typed, and ideal for building efficient, reliable backend APIs with minimal runtime overhead.   |
+| **Persistence**      | Global In-Memory Map     | Lightweight, zero-dependency storage for tracking mission states within the service instance.                  |
+| **Message Queue**    | RabbitMQ                 | Provides reliable message delivery, queue-based communication, and decoupling between API and worker services. |
+| **Containerization** | Docker                   | Ensures consistent environments, clean isolation, and simple deployment across machines.                       |
+| **Message Format**   | JSON                     | Human-readable, language-agnostic, and easy to encode/decode in Go.                                            |
+| **Worker Scaling**   | Docker Compose Replicas  | Offers straightforward horizontal scaling without needing complex orchestration tools like Kubernetes.         |
+
+
+
 ## JWT Authentication
 
 JWT is validated before soldier executes any mission.
@@ -158,7 +172,8 @@ Authentication is handled using JWT-based access tokens paired with long-lived r
 
 The Mission Control project includes a comprehensive suite of unit tests that validate the core functionality of both the Commander and Soldier services. These tests cover mission creation, mission retrieval, in-memory state management, and JWT-based authentication. By mocking external dependencies such as RabbitMQ channels, the test suite verifies message publishing, status propagation, and error handling without requiring the actual broker to be running. This ensures that each component behaves correctly in isolation and adheres to expected API contracts.
 
-<img width="898" height="172" alt="image" src="https://github.com/user-attachments/assets/eb30dff4-73dd-4c3e-8b07-26e90c388474" />
+<img width="1183" height="482" alt="image" src="https://github.com/user-attachments/assets/0f1a13d4-3d1f-479d-bbd1-b58b605ccd50" />
+
 
 #### Run Commander
 ```
@@ -218,18 +233,6 @@ docoker-compose up
         <td><img width="1252" height="267" alt="image" src="https://github.com/user-attachments/assets/e046848d-ae9e-452d-8a94-e92f63dea93e" /></td>
     </tr>
 </table>
-
-### Technology
-
-| Component            | Technology               | Rationale                                                                                                      |
-| -------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **API Framework**    | Golang (net/http)        | Fast, strongly typed, and ideal for building efficient, reliable backend APIs with minimal runtime overhead.   |
-| **Persistence**      | Global In-Memory Map     | Lightweight, zero-dependency storage for tracking mission states within the service instance.                  |
-| **Message Queue**    | RabbitMQ                 | Provides reliable message delivery, queue-based communication, and decoupling between API and worker services. |
-| **Containerization** | Docker                   | Ensures consistent environments, clean isolation, and simple deployment across machines.                       |
-| **Message Format**   | JSON                     | Human-readable, language-agnostic, and easy to encode/decode in Go.                                            |
-| **Worker Scaling**   | Docker Compose Replicas  | Offers straightforward horizontal scaling without needing complex orchestration tools like Kubernetes.         |
-
 
 ## AI Usage Policy
 
