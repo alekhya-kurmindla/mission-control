@@ -21,29 +21,38 @@ func CreateMissionHandler(ch *amqp.Channel) http.HandlerFunc {
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, "Invalid request", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{
+				"message": "Invalid request",
+			})
 			return
 		}
 
-		mission := &models.Mission{
-			ID:     uuid.New().String(),
-			Order:  req.Order,
-			Status: "QUEUED",
+		if req.Order == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{
+				"message": "Require order",
+			})
 		}
-		
+
+		mission := &models.Mission{
+			MissionID: uuid.New().String(),
+			Order:     req.Order,
+			Status:    "QUEUED",
+		}
+
 		if err := rabbitmq.PublishMission(ch, mission); err != nil {
 			http.Error(w, "Failed to publish mission", http.StatusInternalServerError)
 			return
 		} else {
-			// 	store.MissionsMutex.Lock()
-			// store.MissionsMap[mission.ID] = mission
-			// store.MissionsMutex.Unlock()
-			rabbitmq.UpdateMissionStatus(mission.ID, mission.Status)
-			log.Printf("Success: Mission has been published. mission_id: %v ", mission.ID)
+			rabbitmq.SaveMissionStatus(mission.MissionID, mission.Status)
+			log.Printf("Success: Mission has been published. mission_id: %v ", mission.MissionID)
 		}
 
 		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(map[string]string{"mission_id": mission.ID, "status": "QUEUED"})
+		json.NewEncoder(w).Encode(map[string]string{"mission_id": mission.MissionID, "status": "QUEUED"})
 	}
 }
 
@@ -60,6 +69,7 @@ func GetMissionHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Mission not found", http.StatusNotFound)
 }
 
+// App health check
 func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]string{
 		"status":  "ok",

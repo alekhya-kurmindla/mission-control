@@ -22,7 +22,7 @@ func SetupRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 	//conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/myvhost")
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
-		rabbitmqURL = "amqp://guest:guest@localhost:5672/myvhost" // fallback
+		rabbitmqURL = "amqp://guest:guest@localhost:5672/myvhost" // fallback, testing perpose
 	}
 	conn, err := amqp.Dial(rabbitmqURL)
 	failOnError(err, "Failed to connect to RabbitMQ")
@@ -42,7 +42,7 @@ func failOnError(err error, msg string) {
 	}
 }
 
-// Consumes status updates from the queue and updates mission map
+// Consumes status updates from the queue and saves mission status in memory
 func ConsumeStatusUpdates(ch *amqp.Channel) {
 	
 	ch.Qos(1, 0, false) //Read only ONE unacknowledged message at a time from the producer.
@@ -55,21 +55,27 @@ func ConsumeStatusUpdates(ch *amqp.Channel) {
 			Status    string `json:"status"`
 		}
 		json.Unmarshal(d.Body, &statusUpdate)
-		log.Printf("DEBUG: ---->COMMANDER consumed MissionID: %v, Status: %v ", statusUpdate.MissionID, statusUpdate.Status)
-		UpdateMissionStatus(statusUpdate.MissionID, statusUpdate.Status)
+
+		log.Printf("DEBUG: COMMANDER consumed MissionID: %v, Status: %v ", statusUpdate.MissionID, statusUpdate.Status)
+
+		//Saves mission status in memory.
+		SaveMissionStatus(statusUpdate.MissionID, statusUpdate.Status)
 		d.Ack(false)
 	}
 }
 
-func UpdateMissionStatus(id, status string) {
+//Saves mission status in memory.
+func SaveMissionStatus(missionID, status string) {
     store.MissionsMutex.Lock()
     defer store.MissionsMutex.Unlock()
 
-    if mission, ok := store.MissionsMap[id]; ok {
+    if mission, ok := store.MissionsMap[missionID]; ok {
+		//update
         mission.Status = status
     }else {
-		store.MissionsMap[id] = &models.Mission{
-			ID: id,
+		//insert
+		store.MissionsMap[missionID] = &models.Mission{
+			MissionID: missionID,
 			Status: status,
 		}
 	}

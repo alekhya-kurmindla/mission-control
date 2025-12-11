@@ -12,40 +12,45 @@ import (
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
-// Generates a new JWT token
+// JWTResponse represents the JSON response containing access + refresh tokens.
 type JWTResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
 
+// LoginPayload represents the expected login JSON body.
 type LoginPayload struct {
 	APIKey string `json:"api_key"`
 	User   string `json:"user"`
 }
 
-func generateJWT(req LoginPayload) (*JWTResponse, error) {
-
-	accessToken, refreshToken, err := getTokenAndRefreshToken(req.User)
+// generateAccessAndRefreshTokens generates a new access token and refresh token for the given user.
+func generateAccessAndRefreshTokens(req LoginPayload) (*JWTResponse, error) {
+	// Generate both access & refresh tokens.
+	accessToken, refreshToken, err := getAccessTokenAndRefreshToken(req.User)
 	if err != nil {
 		return nil, err
 	}
 
-	// Return both tokens
+	// Return token response object.
 	return &JWTResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 	}, nil
 }
 
-func getTokenAndRefreshToken(user string) (string, string, error) {
-
-	//for soldier
+// getAccessTokenAndRefreshToken creates an access token and a refresh token.
+// Token expiry differs for COMMANDER vs SOLDIER.
+func getAccessTokenAndRefreshToken(user string) (string, string, error) {
+	// Default access token expiry (for soldier = 30 seconds)
 	duration := 30 * time.Second
 
+	// Commander gets 30-minute token
 	if user == config.COMMANDER_USER {
-		//access for 30 minutes
 		duration = 30 * time.Minute
 	}
+
+	// Create ACCESS TOKEN
 	accessClaims := jwt.MapClaims{
 		"exp":  time.Now().Add(duration).Unix(),
 		"iat":  time.Now().Unix(),
@@ -60,9 +65,9 @@ func getTokenAndRefreshToken(user string) (string, string, error) {
 		return "", "", err
 	}
 
-	// --- Refresh Token (1 day) ---
+	// Create REFRESH TOKEN (valid 24 hours)
 	refreshClaims := jwt.MapClaims{
-		"exp":  time.Now().Add(1 * 24 * time.Hour).Unix(),
+		"exp":  time.Now().Add(24 * time.Hour).Unix(),
 		"iat":  time.Now().Unix(),
 		"user": user,
 		"type": "refresh",
@@ -74,76 +79,85 @@ func getTokenAndRefreshToken(user string) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
+
 	return accessToken, refreshToken, nil
 }
 
+// generateNewTokenByRefreshToken validates the refresh token and issues a new pair.
 func generateNewTokenByRefreshToken(refreshToken string) (*JWTResponse, error) {
-
+	// Parse refresh token
 	token, err := jwt.Parse(refreshToken, func(t *jwt.Token) (interface{}, error) {
 		return config.GetJWTSecret(), nil
 	})
-
 	if err != nil || !token.Valid {
 		return nil, err
 	}
 
+	// Extract claims
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 
-		// Example: read "sub"
+		// Extract username
 		user := claims["user"].(string)
 
+		// Extract expiry timestamp
 		expFloat, ok := claims["exp"].(float64)
 		if !ok {
 			log.Println("no exp claim found")
 			return nil, errors.New("no exp claim found")
 		}
 
+		// Convert expiry
 		expTime := time.Unix(int64(expFloat), 0)
 		now := time.Now()
 
+		// Reject expired refresh tokens
 		if now.After(expTime) {
 			log.Println("Token is expired")
-			return nil, errors.New("Refresh Token is expired")
+			return nil, errors.New("refresh token is expired")
 		}
 
-		accessToken, refreshToken, err := getTokenAndRefreshToken(user)
+		// Generate new token pair
+		accessToken, refreshToken, err := getAccessTokenAndRefreshToken(user)
 		if err != nil {
 			return nil, err
 		}
 
-		// Return both tokens
 		return &JWTResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
 		}, nil
-
 	}
 
-	return nil, errors.New("Invalid token")
+	return nil, errors.New("invalid token")
 }
 
-// RefreshTokenRequest input
+// RefreshTokenRequest represents JSON input for /refresh.
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+// RefreshAccessToken validates a refresh token and issues a new token pair.
 func RefreshAccessToken(refreshToken string) (*JWTResponse, error) {
-	// Parse & validate refresh token
+	// Parse refresh token
 	token, err := jwt.Parse(refreshToken, func(t *jwt.Token) (interface{}, error) {
 		return config.GetJWTSecret(), nil
 	})
 	if err != nil || !token.Valid {
 		return nil, errors.New("invalid refresh token")
 	}
+
+	// Validate claims
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return nil, errors.New("invalid token claims")
 	}
 
+	// Ensure token type is "refresh"
 	if claims["type"] != "refresh" {
 		return nil, errors.New("token is not a refresh token")
 	}
 
+	// Validate expiry
 	expUnix, ok := claims["exp"].(float64)
 	if !ok {
 		return nil, errors.New("invalid exp claim")
@@ -153,6 +167,7 @@ func RefreshAccessToken(refreshToken string) (*JWTResponse, error) {
 		return nil, errors.New("refresh token expired")
 	}
 
+	// Issue a new token pair
 	newTokens, err := generateNewTokenByRefreshToken(refreshToken)
 	if err != nil {
 		return nil, err
@@ -160,89 +175,78 @@ func RefreshAccessToken(refreshToken string) (*JWTResponse, error) {
 
 	return newTokens, nil
 }
-
-// LoginHandler returns a JWT token
+// LoginHandler handles /login API and returns JWT access + refresh tokens.
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var req LoginPayload
+	// Parse JSON body
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "Invalid JSON",
-		})
+		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid JSON"})
 		return
 	}
-
+	// Validate required fields
 	if req.APIKey == "" || req.User == "" {
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "Bad request. Required api_key and user",
-		})
+		json.NewEncoder(w).Encode(map[string]string{"message": "Bad request. Required api_key and user"})
 		return
 	}
-
+	// Only allow known user types
 	if req.User != config.COMMANDER_USER && req.User != config.SOLDIER_USER {
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "Bad request. Invalid user",
-		})
+		json.NewEncoder(w).Encode(map[string]string{"message": "Bad request. Invalid user"})
 		return
 	}
-
+	// Commander key check
 	if req.User == config.COMMANDER_USER && req.APIKey != os.Getenv("COMMANDER_API_KEY") {
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "Unauthorized request. Invalid API_KEY",
-		})
+		json.NewEncoder(w).Encode(map[string]string{"message": "Unauthorized request. Invalid API_KEY"})
 		return
 	}
-
+	// Soldier key check
 	if req.User == config.SOLDIER_USER && req.APIKey != os.Getenv("SOLDIER_API_KEY") {
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
-
-		json.NewEncoder(w).Encode(map[string]string{
-			"message": "Unauthorized request. Invalid API_KEY",
-		})
-
+		json.NewEncoder(w).Encode(map[string]string{"message": "Unauthorized request. Invalid API_KEY"})
 		return
 	}
-
-	token, err := generateJWT(req)
+	// Generate JWT tokens
+	token, err := generateAccessAndRefreshTokens(req)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
 	}
 
+	// Return token response
 	json.NewEncoder(w).Encode(map[string]*JWTResponse{
 		"token": token,
 	})
 }
 
+// RefreshHandler handles /refresh API and returns a new token pair.
 func RefreshHandler(w http.ResponseWriter, r *http.Request) {
+	// Only POST allowed
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	var req RefreshTokenRequest
+	// Parse refresh token request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid json", http.StatusBadRequest)
 		return
 	}
-
+	if req.RefreshToken == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"message": "Bad request. Required refresh_token"})
+		return
+	}
+	// Issue a new token
 	token, err := RefreshAccessToken(req.RefreshToken)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+	// Return response JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]*JWTResponse{
 		"token": token,

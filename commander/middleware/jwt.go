@@ -12,6 +12,7 @@ import (
 // JWTMiddleware validates JWT for protected endpoints
 func JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// validating the auth header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -35,7 +36,7 @@ func JWTMiddleware(next http.Handler) http.Handler {
 			// Example: read "sub"
 			user := claims["user"].(string)
 			role := claims["role"].(string)
-			
+
 			if user != config.COMMANDER_USER {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)

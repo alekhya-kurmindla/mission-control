@@ -181,9 +181,7 @@ function Test-Concurrency {
 
 function Test-JWTFlow {
     Write-Host "=== Testing /login and /refresh flow ==="
-    Log "=== Testing JWT Flow ==="
 
-    Write-Host "`n[*] Calling /login API..."
     $loginResponse = Get-AuthToken
 
     $access  = $loginResponse.token.access_token

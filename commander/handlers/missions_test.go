@@ -13,7 +13,7 @@ import (
 func TestGetMissionHandler_Success(t *testing.T) {
 	// Insert mission into global map
 	mission := &models.Mission{
-		ID:     "abc123",
+		MissionID:     "abc123",
 		Order:  "Recon",
 		Status: "QUEUED",
 	}
@@ -39,8 +39,8 @@ func TestGetMissionHandler_Success(t *testing.T) {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if resp.ID != "abc123" {
-		t.Fatalf("expected ID abc123, got %s", resp.ID)
+	if resp.MissionID != "abc123" {
+		t.Fatalf("expected ID abc123, got %s", resp.MissionID)
 	}
 
 	if resp.Order != "Recon" {
