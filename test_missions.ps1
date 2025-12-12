@@ -119,7 +119,7 @@ function Wait-ForMissionStatus {
 # ----------------------------------------
 function Test-Concurrency {
     Log-Newline
-    Log "=== Running Test 2: Concurrency (20 missions) ==="
+    Log "=== Running Test 2: Concurrency (30 missions) ==="
     Log-Newline
 
     $loginResp = Get-AuthToken

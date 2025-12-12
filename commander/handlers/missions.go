@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-
 	"mission_control/commander/models"
 	"mission_control/commander/rabbitmq"
 	"mission_control/commander/store"
-
+	"mission_control/commander/utils"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -19,40 +18,37 @@ func CreateMissionHandler(ch *amqp.Channel) http.HandlerFunc {
 		var req struct {
 			Order string `json:"order"`
 		}
-
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{
+			data := map[string]string{
 				"message": "Invalid request",
-			})
+			}
+			utils.RenderJsonMessage(data, w, http.StatusBadRequest)
 			return
 		}
-
 		if req.Order == "" {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{
+			data := map[string]string{
 				"message": "Require order",
-			})
+			}
+			utils.RenderJsonMessage(data, w, http.StatusBadRequest)
+			return
 		}
-
 		mission := &models.Mission{
 			MissionID: uuid.New().String(),
 			Order:     req.Order,
 			Status:    "QUEUED",
 		}
-
 		if err := rabbitmq.PublishMission(ch, mission); err != nil {
-			http.Error(w, "Failed to publish mission", http.StatusInternalServerError)
+			data := map[string]string{
+				"message": "Failed to publish mission",
+			}
+			utils.RenderJsonMessage(data, w, http.StatusInternalServerError)
 			return
 		} else {
 			rabbitmq.SaveMissionStatus(mission.MissionID, mission.Status)
 			log.Printf("Success: Mission has been published. mission_id: %v ", mission.MissionID)
 		}
-
-		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(map[string]string{"mission_id": mission.MissionID, "status": "QUEUED"})
+		data := map[string]string{"mission_id": mission.MissionID, "status": "QUEUED"}
+		utils.RenderJsonMessage(data, w, http.StatusAccepted)
 	}
 }
 
@@ -66,17 +62,19 @@ func GetMissionHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(mission)
 		return
 	}
-	http.Error(w, "Mission not found", http.StatusNotFound)
+	data := map[string]string{
+		"message": "Mission not found",
+	}
+	utils.RenderJsonMessage(data, w, http.StatusNotFound)
 }
 
 // App health check
-func HealthHandler(w http.ResponseWriter, r *http.Request) {
+func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]string{
 		"status":  "ok",
 		"service": "commander",
 		"message": "Service is healthy",
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }

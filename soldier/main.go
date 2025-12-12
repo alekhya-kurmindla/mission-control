@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"mission_control/soldier/auth"
 	"mission_control/soldier/execute_mission"
@@ -11,31 +9,54 @@ import (
 	"mission_control/soldier/rabbitmq"
 )
 
-var (
-	ctx           = context.Background()
-)
-
 func main() {
 	log.Println("Soldier starting up...")
-	conn, ch := rabbitmq.SetupRabbitMQ()
+
+	//Connect to RabbitMQ with retry
+	conn, ch := rabbitmq.SetupRabbitWithRetry()
 	defer conn.Close()
 	defer ch.Close()
 
-	msgs, err := ch.Consume(rabbitmq.OrdersQueue, "", true, false, false, false, nil)
-	rabbitmq.FailOnError(err, "Failed to register consumer")
-
-	log.Println("Soldier waiting for missions...")
-	err = auth.Login(ctx)
-
-	if err != nil {
-		msg := fmt.Sprintf("ERROR Login failed for Soldier %s...\n", err.Error())
-		log.Println(msg)
-		panic(msg) //do not start soldier
+	//Auth soldier with retry
+	if !auth.GetAuthWithRetry() {
+		log.Fatal("Soldier cannot start without authentication")
 	}
+
+	//Start consuming messages
+	msgs, err := ch.Consume(rabbitmq.OrdersQueue, "", true, false, false, false, nil)
+	if err != nil {
+		log.Fatalf("Failed to register consumer: %v", err)
+	}
+	log.Println("Soldier waiting for missions...")
+
+	//Process incoming missions
 	for d := range msgs {
 		var mission models.Mission
-		json.Unmarshal(d.Body, &mission)
-		log.Printf("Valid JWT. Executing mission %s...\n", mission.ID)
-		go execute_mission.ExecuteMission(ctx, mission, ch)
+
+		// Validate incoming JSON
+		if err := json.Unmarshal(d.Body, &mission); err != nil {
+			log.Printf("Invalid mission JSON: %s", err.Error())
+			continue // Skip invalid mission
+		}
+
+		if mission.ID == "" {
+			log.Println("Received mission with empty ID — skipping")
+			continue
+		}
+
+		log.Printf("Mission received: %s", mission.ID)
+
+		// Execute mission safely
+		go func(m models.Mission) {
+			// Recover from panics inside mission execution
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("Recovered from panic in mission %s: %v", m.ID, r)
+				}
+			}()
+
+			execute_mission.ExecuteMission(auth.Ctx, m, ch)
+		}(mission)
 	}
+	log.Println("RabbitMQ channel closed — soldier stopping")
 }

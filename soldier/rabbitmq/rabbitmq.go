@@ -65,3 +65,17 @@ func PublishWithRetry(ch *amqp.Channel, queue string, body []byte) error {
 
 	return fmt.Errorf("failed to publish message to queue %s after retries", queue)
 }
+
+func SetupRabbitWithRetry() (*amqp.Connection, *amqp.Channel) {
+	for {
+		conn, ch := SetupRabbitMQ()
+		if conn != nil && ch != nil {
+			log.Println("Connected to RabbitMQ")
+			return conn, ch
+		}
+
+		log.Println("RabbitMQ connection failed — retrying in 5s...")
+		time.Sleep(5 * time.Second)
+	}
+}
+

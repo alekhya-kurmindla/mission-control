@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"time"
-
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
@@ -31,7 +30,6 @@ func generateAccessAndRefreshTokens(req LoginPayload) (*JWTResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	// Return token response object.
 	return &JWTResponse{
 		AccessToken:  accessToken,
@@ -44,12 +42,10 @@ func generateAccessAndRefreshTokens(req LoginPayload) (*JWTResponse, error) {
 func getAccessTokenAndRefreshToken(user string) (string, string, error) {
 	// Default access token expiry (for soldier = 30 seconds)
 	duration := 30 * time.Second
-
 	// Commander gets 30-minute token
 	if user == config.COMMANDER_USER {
 		duration = 30 * time.Minute
 	}
-
 	// Create ACCESS TOKEN
 	accessClaims := jwt.MapClaims{
 		"exp":  time.Now().Add(duration).Unix(),
@@ -58,13 +54,11 @@ func getAccessTokenAndRefreshToken(user string) (string, string, error) {
 		"type": "access",
 		"role": user + "_ACCESS",
 	}
-
 	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims).
 		SignedString(config.GetJWTSecret())
 	if err != nil {
 		return "", "", err
 	}
-
 	// Create REFRESH TOKEN (valid 24 hours)
 	refreshClaims := jwt.MapClaims{
 		"exp":  time.Now().Add(24 * time.Hour).Unix(),
@@ -73,13 +67,11 @@ func getAccessTokenAndRefreshToken(user string) (string, string, error) {
 		"type": "refresh",
 		"role": user + "_ACCESS",
 	}
-
 	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).
 		SignedString(config.GetJWTSecret())
 	if err != nil {
 		return "", "", err
 	}
-
 	return accessToken, refreshToken, nil
 }
 
@@ -92,20 +84,17 @@ func generateNewTokenByRefreshToken(refreshToken string) (*JWTResponse, error) {
 	if err != nil || !token.Valid {
 		return nil, err
 	}
-
 	// Extract claims
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 
 		// Extract username
 		user := claims["user"].(string)
-
 		// Extract expiry timestamp
 		expFloat, ok := claims["exp"].(float64)
 		if !ok {
 			log.Println("no exp claim found")
 			return nil, errors.New("no exp claim found")
 		}
-
 		// Convert expiry
 		expTime := time.Unix(int64(expFloat), 0)
 		now := time.Now()
@@ -115,19 +104,16 @@ func generateNewTokenByRefreshToken(refreshToken string) (*JWTResponse, error) {
 			log.Println("Token is expired")
 			return nil, errors.New("refresh token is expired")
 		}
-
 		// Generate new token pair
 		accessToken, refreshToken, err := getAccessTokenAndRefreshToken(user)
 		if err != nil {
 			return nil, err
 		}
-
 		return &JWTResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
 		}, nil
 	}
-
 	return nil, errors.New("invalid token")
 }
 
@@ -135,7 +121,6 @@ func generateNewTokenByRefreshToken(refreshToken string) (*JWTResponse, error) {
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
-
 // RefreshAccessToken validates a refresh token and issues a new token pair.
 func RefreshAccessToken(refreshToken string) (*JWTResponse, error) {
 	// Parse refresh token
@@ -145,34 +130,28 @@ func RefreshAccessToken(refreshToken string) (*JWTResponse, error) {
 	if err != nil || !token.Valid {
 		return nil, errors.New("invalid refresh token")
 	}
-
 	// Validate claims
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		return nil, errors.New("invalid token claims")
 	}
-
 	// Ensure token type is "refresh"
 	if claims["type"] != "refresh" {
 		return nil, errors.New("token is not a refresh token")
 	}
-
 	// Validate expiry
 	expUnix, ok := claims["exp"].(float64)
 	if !ok {
 		return nil, errors.New("invalid exp claim")
 	}
-
 	if int64(expUnix) < time.Now().Unix() {
 		return nil, errors.New("refresh token expired")
 	}
-
 	// Issue a new token pair
 	newTokens, err := generateNewTokenByRefreshToken(refreshToken)
 	if err != nil {
 		return nil, err
 	}
-
 	return newTokens, nil
 }
 // LoginHandler handles /login API and returns JWT access + refresh tokens.
@@ -215,7 +194,6 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
 	}
-
 	// Return token response
 	json.NewEncoder(w).Encode(map[string]*JWTResponse{
 		"token": token,

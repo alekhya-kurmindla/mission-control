@@ -69,49 +69,45 @@ func TestGenerateJWT(t *testing.T) {
 
 }
 func TestLoginHandler(t *testing.T) {
-    // --- Prepare JSON Payload ---
-    payload := map[string]string{
-        "user":    "COMMANDER",
-        "api_key": "dummy_commander_secret_key",
-    }
+	// --- Prepare JSON Payload ---
+	payload := map[string]string{
+		"user":    "COMMANDER",
+		"api_key": "dummy_commander_secret_key",
+	}
 
-    body, err := json.Marshal(payload)
-    if err != nil {
-        t.Fatalf("failed to marshal payload: %v", err)
-    }
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal payload: %v", err)
+	}
 
-    // --- Mock Request + Recorder ---
-    req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
-    req.Header.Set("Content-Type", "application/json")
+	// --- Mock Request + Recorder ---
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 
-    rr := httptest.NewRecorder()
+	rr := httptest.NewRecorder()
 
-    // --- Call Handler ---
-    LoginHandler(rr, req)
+	// --- Call Handler ---
+	LoginHandler(rr, req)
 
-    // --- Validate Response ---
-    if rr.Code != http.StatusOK {
-        t.Fatalf("expected status 200, got %d", rr.Code)
-    }
+	// --- Validate Response ---
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rr.Code)
+	}
+	// --- Parse Response Body ---
+	var resp map[string]JWTResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &resp)
+	if err != nil {
+		t.Fatalf("failed to decode login response: %v", err)
+	}
+	tokenObj, ok := resp["token"]
+	if !ok {
+		t.Fatalf("response missing 'token' field")
+	}
+	if tokenObj.AccessToken == "" {
+		t.Fatalf("access token missing")
+	}
 
-    // --- Parse Response Body ---
-    var resp map[string]JWTResponse
-    err = json.Unmarshal(rr.Body.Bytes(), &resp)
-    if err != nil {
-        t.Fatalf("failed to decode login response: %v", err)
-    }
-
-    tokenObj, ok := resp["token"]
-    if !ok {
-        t.Fatalf("response missing 'token' field")
-    }
-
-    if tokenObj.AccessToken == "" {
-        t.Fatalf("access token missing")
-    }
-
-    if tokenObj.RefreshToken == "" {
-        t.Fatalf("refresh token missing")
-    }
+	if tokenObj.RefreshToken == "" {
+		t.Fatalf("refresh token missing")
+	}
 }
-

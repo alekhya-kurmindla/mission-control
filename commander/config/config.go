@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	COMMANDER_USER   = "COMMANDER"       // Commander user type
+	COMMANDER_USER   = "COMMANDER"        // Commander user type
 	COMMANDER_ACCESS = "COMMANDER_ACCESS" // Commander access role
-	SOLDIER_USER     = "SOLDIER"         // Soldier user type
-	SOLDIER_ACCESS   = "SOLDIER_ACCESS"  // Soldier access role
+	SOLDIER_USER     = "SOLDIER"          // Soldier user type
+	SOLDIER_ACCESS   = "SOLDIER_ACCESS"   // Soldier access role
 )
 
 // Returns the JWT secret key
@@ -33,25 +33,21 @@ func IsTokenExpired(accessToken string) bool {
 		log.Println("Error parsing token:", err)
 		return true
 	}
-
 	// Extract claims
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
 		log.Println("Invalid token claims")
 		return true
 	}
-
 	// Read expiration time
 	expFloat, ok := claims["exp"].(float64)
 	if !ok {
 		log.Println("No exp claim found")
 		return true
 	}
-
 	// Convert exp to time
 	expTime := time.Unix(int64(expFloat), 0)
 	now := time.Now()
-
 	// Check if expired
 	if now.After(expTime) {
 		log.Println("Token is expired")

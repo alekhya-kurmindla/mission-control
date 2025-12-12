@@ -20,92 +20,93 @@ import (
 )
 
 type TokenStore struct {
-	AuthToken    string
-	RefreshToken string
-	mu           sync.RWMutex
+	AuthToken    string // Stores access token
+	RefreshToken string // Stores refresh token
+	mu           sync.RWMutex // Mutex for thread-safe access
 }
 
-var tokens = &TokenStore{}
+var tokens = &TokenStore{} // Global token store
 
 func SetTokens(auth, refresh string) {
-	tokens.mu.Lock()
-	defer tokens.mu.Unlock()
-
-	tokens.AuthToken = auth
-	tokens.RefreshToken = refresh
+	tokens.mu.Lock()            // Lock for writing
+	defer tokens.mu.Unlock()    // Unlock after update
+	tokens.AuthToken = auth     // Set auth token
+	tokens.RefreshToken = refresh // Set refresh token
 }
 
 func GetTokens() (string, string) {
-	tokens.mu.RLock()
-	defer tokens.mu.RUnlock()
-
-	return tokens.AuthToken, tokens.RefreshToken
+	tokens.mu.RLock()          // Lock for reading
+	defer tokens.mu.RUnlock()  // Unlock after read
+	return tokens.AuthToken, tokens.RefreshToken // Return tokens
 }
 
-// ValidateToken validates JWT and ensures it is not expired
+// ValidateToken validates JWT token syntactically and checks expiration
 func ValidateToken(authHeader string) error {
-	if authHeader == "" {
+	if authHeader == "" { // Empty header check
 		return errors.New("missing token")
 	}
 
-	token, err := extractBearerToken(authHeader)
+	token, err := extractBearerToken(authHeader) // Extract token from Bearer header
 	if err != nil {
 		return fmt.Errorf("invalid token: %v", err)
 	}
-	jwtSecret := config.GetJWTSecret()
+
+	jwtSecret := config.GetJWTSecret() // Get signing secret
+
 	_, err = jwt.Parse(token, func(t *jwt.Token) (interface{}, error) {
-		return jwtSecret, nil
+		return jwtSecret, nil // Validate token signature
 	})
 
-	if err != nil {
+	if err != nil { // Invalid or expired
 		return fmt.Errorf("invalid or expired token: %v", err)
 	}
 
 	return nil
 }
 
-// extractBearerToken extracts the token from "Bearer <token>" format
+// extractBearerToken extracts token from "Bearer <token>"
 func extractBearerToken(authHeader string) (string, error) {
-	authHeader = strings.TrimSpace(authHeader)
+	authHeader = strings.TrimSpace(authHeader) // Trim spaces
 	if authHeader == "" {
 		return "", errors.New("empty authorization header")
 	}
 
-	parts := strings.Fields(authHeader)
+	parts := strings.Fields(authHeader) // Split header
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
 		return "", errors.New("authorization header must be in the format Bearer <token>")
 	}
 
-	return parts[1], nil
+	return parts[1], nil // Return token only
 }
 
 func isTokenExpired(accessToken string) (bool, error) {
-	if accessToken == "" {
+	if accessToken == "" { // Token empty check
 		log.Println("token is empty")
 		return true, errors.New("token is empty")
 	}
-	token, _, err := new(jwt.Parser).ParseUnverified(accessToken, jwt.MapClaims{})
+
+	token, _, err := new(jwt.Parser).ParseUnverified(accessToken, jwt.MapClaims{}) // Parse without verifying
 	if err != nil {
 		log.Println("Error parsing token:", err)
 		return true, err
 	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
+	claims, ok := token.Claims.(jwt.MapClaims) // Extract claims
 	if !ok {
 		log.Println("invalid token claims")
 		return true, errors.New("invalid token claims")
 	}
 
-	expFloat, ok := claims["exp"].(float64)
+	expFloat, ok := claims["exp"].(float64) // Read exp field
 	if !ok {
 		log.Println("no exp claim found")
 		return true, errors.New("no exp claim found")
 	}
 
-	expTime := time.Unix(int64(expFloat), 0)
-	now := time.Now()
+	expTime := time.Unix(int64(expFloat), 0) // Convert to time
+	now := time.Now()                       // Current time
 
-	if now.After(expTime) {
+	if now.After(expTime) { // Compare expiration
 		log.Println("Token is expired")
 		return true, nil
 	} else {
@@ -114,49 +115,20 @@ func isTokenExpired(accessToken string) (bool, error) {
 	}
 }
 
-func Login(ctx context.Context) error {
-
-	commanderURL := os.Getenv("COMMANDER_URL")
-
-	// Prepare login request
-	creds := map[string]string{
-		"user":    config.SOLDIER_USER,
-		"api_key": os.Getenv("SOLDIER_API_KEY"),
-	}
-
-	body, _ := json.Marshal(creds)
-
-	req, err := http.NewRequest("POST", commanderURL+"/login", bytes.NewBuffer(body))
-
-	if err != nil {
-		log.Println("Got an error while making new Login Request: ", err.Error())
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	err = makeAuthCall(req)
-	if err != nil {
-		log.Println("Got an error in makeAuthCall: ", err.Error())
-		return err
-	}
-	return nil
-}
-
 func RefreshToken(ctx context.Context, refreshToken string) error {
 
-	commanderURL := os.Getenv("COMMANDER_URL")
+	commanderURL := os.Getenv("COMMANDER_URL") // Base commander URL
 
-	// Prepare login request
 	creds := map[string]string{
-		"refresh_token": refreshToken,
+		"refresh_token": refreshToken, // Prepare request payload
 	}
 
-	body, _ := json.Marshal(creds)
+	body, _ := json.Marshal(creds) // Convert to JSON
 
-	req, _ := http.NewRequest("POST", commanderURL+"/refresh", bytes.NewBuffer(body))
-	req.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest("POST", commanderURL+"/refresh", bytes.NewBuffer(body)) // Build request
+	req.Header.Set("Content-Type", "application/json") // Set JSON header
 
-	err := makeAuthCall(req)
+	err := makeAuthCall(req) // Execute refresh call
 	if err != nil {
 		log.Println("Got an error: ", err.Error())
 		return err
@@ -165,75 +137,72 @@ func RefreshToken(ctx context.Context, refreshToken string) error {
 }
 
 func makeAuthCall(req *http.Request) error {
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	client := &http.Client{} // HTTP client
+	resp, err := client.Do(req) // Send request
 	if err != nil {
 		log.Println("Got an error: ", err.Error())
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() // Close response body
 
-	respBytes, _ := io.ReadAll(resp.Body)
+	respBytes, _ := io.ReadAll(resp.Body) // Read response
 
-	// Parse token response
-	var loginResp models.LoginResponse
+	var loginResp models.LoginResponse // Parse login response
 	json.Unmarshal(respBytes, &loginResp)
-	
-	//set to global variable as ctx value is missing while refreshing the token
-	SetTokens(loginResp.Token.AccessToken, loginResp.Token.RefreshToken)
+
+	SetTokens(loginResp.Token.AccessToken, loginResp.Token.RefreshToken) // Store new tokens
 	return nil
 }
 
 func ValidateSoldier(ctx context.Context) error {
-	authToken, refreshToken := GetTokens()
-	isExpired, err := isTokenExpired(authToken)
+	authToken, refreshToken := GetTokens() // Get current tokens
+
+	isExpired, err := isTokenExpired(authToken) // Check expiration
 	if err != nil {
 		log.Println("Got an error in ExecuteMission isTokenExpired: ", err.Error())
 		return err
 	}
 
-	if isExpired {
-
+	if isExpired { // If expired then refresh
 		log.Println("Soldier token has been expired. Generating new token using refresh token")
 
-		err = RefreshToken(ctx, refreshToken)
+		err = RefreshToken(ctx, refreshToken) // Call refresh endpoint
 		if err != nil {
 			log.Println("Got an error in ExecuteMission RefreshToken: ", err.Error())
 			return err
 		}
 
-		authToken, _ = GetTokens()
+		authToken, _ = GetTokens() // Load new tokens
 	}
 
-	if authToken != "" {
+	if authToken != "" { // Ensure token available
 
 		token, err := jwt.Parse(authToken, func(t *jwt.Token) (interface{}, error) {
-			return config.GetJWTSecret(), nil
+			return config.GetJWTSecret(), nil // Validate signature
 		})
 
-		if err != nil || !token.Valid {
+		if err != nil || !token.Valid { // Invalid token
 			return errors.New("invalid or expired token")
 		}
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 
-			// Example: read "sub"
-			user := claims["user"].(string)
-			role := claims["role"].(string)
+			user := claims["user"].(string) // Extract user
+			role := claims["role"].(string) // Extract role
 
-			if user != config.SOLDIER_USER {
+			if user != config.SOLDIER_USER { // Check correct user
 				return errors.New("only soldier can perform this action")
 			}
 
-			if role != config.SOLDIER_ACCESS {
+			if role != config.SOLDIER_ACCESS { // Check soldier privileges
 				return errors.New("you do not have enough privileges to perform this action")
 			}
 
 		}
 
 	} else {
-		return errors.New("token is empty")
+		return errors.New("token is empty") // Missing token
 	}
 
-	return nil
+	return nil // Successful validation
 }
