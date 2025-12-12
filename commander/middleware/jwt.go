@@ -19,7 +19,6 @@ func JWTMiddleware(next http.Handler) http.Handler {
 			w.Write([]byte("Missing or invalid Authorization header"))
 			return
 		}
-
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
 			return config.GetJWTSecret(), nil
@@ -32,7 +31,6 @@ func JWTMiddleware(next http.Handler) http.Handler {
 		}
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-
 			// Example: read "sub"
 			user := claims["user"].(string)
 			role := claims["role"].(string)
@@ -41,22 +39,19 @@ func JWTMiddleware(next http.Handler) http.Handler {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				json.NewEncoder(w).Encode(map[string]string{
-				"message": "Only commander can perform this action",
+					"message": "Only commander can perform this action",
 				})
 				return
 			}
-
-			if role != config.COMMANDER_ACCESS { 
+			if role != config.COMMANDER_ACCESS {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
 				json.NewEncoder(w).Encode(map[string]string{
-				"message": "You do not have enough privileges to perform this action",
+					"message": "You do not have enough privileges to perform this action",
 				})
 				return
 			}
-
 		}
-
 		next.ServeHTTP(w, r)
 	})
 }

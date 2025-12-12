@@ -5,14 +5,12 @@ import (
 	"log"
 	"os"
 	"time"
-
-
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 const (
-	OrdersQueue = "orders_queue"
-	StatusQueue = "status_queue"
+	OrdersQueue = "orders_queue" // commander sends mission orders to the orders_queue.
+	StatusQueue = "status_queue" // Soldiers publish mission status updates to the status_queue.
 )
 
 // FailOnError logs a fatal error if one occurs
@@ -24,15 +22,11 @@ func FailOnError(err error, msg string) {
 
 // SetupRabbitMQ connects to RabbitMQ and declares required queues
 func SetupRabbitMQ() (*amqp.Connection, *amqp.Channel) {
-	//conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/myvhost")
-
 	rabbitmqURL := os.Getenv("RABBITMQ_URL")
 	if rabbitmqURL == "" {
 		rabbitmqURL = "amqp://guest:guest@localhost:5672/myvhost" // fallback
 	}
 	conn, err := amqp.Dial(rabbitmqURL)
-
-	
 	FailOnError(err, "Failed to connect to RabbitMQ")
 
 	ch, err := conn.Channel()
@@ -44,7 +38,7 @@ func SetupRabbitMQ() (*amqp.Connection, *amqp.Channel) {
 	return conn, ch
 }
 
-// PublishWithRetry publishes a message to a queue with retries
+// PublishWithRetry publishes a message with retry and exponential backoff
 func PublishWithRetry(ch *amqp.Channel, queue string, body []byte) error {
 	maxAttempts := 5
 	wait := time.Second
@@ -53,19 +47,17 @@ func PublishWithRetry(ch *amqp.Channel, queue string, body []byte) error {
 			ContentType: "application/json",
 			Body:        body,
 		})
-
 		if err == nil {
 			return nil
 		}
-
 		log.Printf("Publish failed for queue %s. Attempt %d/%d", queue, attempt, maxAttempts)
 		time.Sleep(wait)
 		wait *= 2
 	}
-
 	return fmt.Errorf("failed to publish message to queue %s after retries", queue)
 }
 
+// SetupRabbitWithRetry keeps retrying connection until RabbitMQ becomes available
 func SetupRabbitWithRetry() (*amqp.Connection, *amqp.Channel) {
 	for {
 		conn, ch := SetupRabbitMQ()
@@ -73,9 +65,7 @@ func SetupRabbitWithRetry() (*amqp.Connection, *amqp.Channel) {
 			log.Println("Connected to RabbitMQ")
 			return conn, ch
 		}
-
 		log.Println("RabbitMQ connection failed — retrying in 5s...")
 		time.Sleep(5 * time.Second)
 	}
 }
-

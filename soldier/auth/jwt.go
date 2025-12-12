@@ -79,6 +79,7 @@ func extractBearerToken(authHeader string) (string, error) {
 	return parts[1], nil // Return token only
 }
 
+// isTokenExpired checks if JWT expiration time has passed
 func isTokenExpired(accessToken string) (bool, error) {
 	if accessToken == "" { // Token empty check
 		log.Println("token is empty")
@@ -90,19 +91,16 @@ func isTokenExpired(accessToken string) (bool, error) {
 		log.Println("Error parsing token:", err)
 		return true, err
 	}
-
 	claims, ok := token.Claims.(jwt.MapClaims) // Extract claims
 	if !ok {
 		log.Println("invalid token claims")
 		return true, errors.New("invalid token claims")
 	}
-
 	expFloat, ok := claims["exp"].(float64) // Read exp field
 	if !ok {
 		log.Println("no exp claim found")
 		return true, errors.New("no exp claim found")
 	}
-
 	expTime := time.Unix(int64(expFloat), 0) // Convert to time
 	now := time.Now()                       // Current time
 
@@ -115,14 +113,12 @@ func isTokenExpired(accessToken string) (bool, error) {
 	}
 }
 
+// RefreshToken makes a refresh request using the refresh token
 func RefreshToken(ctx context.Context, refreshToken string) error {
-
 	commanderURL := os.Getenv("COMMANDER_URL") // Base commander URL
-
 	creds := map[string]string{
 		"refresh_token": refreshToken, // Prepare request payload
 	}
-
 	body, _ := json.Marshal(creds) // Convert to JSON
 
 	req, _ := http.NewRequest("POST", commanderURL+"/refresh", bytes.NewBuffer(body)) // Build request
@@ -136,6 +132,7 @@ func RefreshToken(ctx context.Context, refreshToken string) error {
 	return nil
 }
 
+// makeAuthCall sends HTTP request and stores returned tokens
 func makeAuthCall(req *http.Request) error {
 	client := &http.Client{} // HTTP client
 	resp, err := client.Do(req) // Send request
@@ -154,6 +151,7 @@ func makeAuthCall(req *http.Request) error {
 	return nil
 }
 
+// ValidateSoldier ensures the access token is valid and user has soldier permissions
 func ValidateSoldier(ctx context.Context) error {
 	authToken, refreshToken := GetTokens() // Get current tokens
 
@@ -162,7 +160,6 @@ func ValidateSoldier(ctx context.Context) error {
 		log.Println("Got an error in ExecuteMission isTokenExpired: ", err.Error())
 		return err
 	}
-
 	if isExpired { // If expired then refresh
 		log.Println("Soldier token has been expired. Generating new token using refresh token")
 
@@ -174,7 +171,6 @@ func ValidateSoldier(ctx context.Context) error {
 
 		authToken, _ = GetTokens() // Load new tokens
 	}
-
 	if authToken != "" { // Ensure token available
 
 		token, err := jwt.Parse(authToken, func(t *jwt.Token) (interface{}, error) {
@@ -203,6 +199,5 @@ func ValidateSoldier(ctx context.Context) error {
 	} else {
 		return errors.New("token is empty") // Missing token
 	}
-
 	return nil // Successful validation
 }

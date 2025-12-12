@@ -3,12 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"log"
 	"mission_control/commander/config"
 	"net/http"
 	"os"
 	"time"
-	jwt "github.com/golang-jwt/jwt/v5"
 )
 
 // JWTResponse represents the JSON response containing access + refresh tokens.
@@ -121,6 +121,7 @@ func generateNewTokenByRefreshToken(refreshToken string) (*JWTResponse, error) {
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
+
 // RefreshAccessToken validates a refresh token and issues a new token pair.
 func RefreshAccessToken(refreshToken string) (*JWTResponse, error) {
 	// Parse refresh token
@@ -154,6 +155,7 @@ func RefreshAccessToken(refreshToken string) (*JWTResponse, error) {
 	}
 	return newTokens, nil
 }
+
 // LoginHandler handles /login API and returns JWT access + refresh tokens.
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var req LoginPayload

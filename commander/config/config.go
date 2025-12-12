@@ -26,7 +26,6 @@ func GetJWTSecret() []byte {
 
 // Checks if the JWT access token is expired
 func IsTokenExpired(accessToken string) bool {
-
 	// Parse token without signature verification
 	token, _, err := new(jwt.Parser).ParseUnverified(accessToken, jwt.MapClaims{})
 	if err != nil {

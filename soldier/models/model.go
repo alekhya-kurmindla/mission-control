@@ -7,11 +7,13 @@ type Mission struct {
 	Status string `json:"status"`
 }
 
+// Token holds the access and refresh tokens received from authentication
 type Token struct {
 	AccessToken    string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 }
 
+// LoginResponse represents the authentication response from commander
 type LoginResponse struct {
 	Token Token `json:"token"`
 }

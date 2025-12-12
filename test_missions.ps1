@@ -20,14 +20,12 @@ function Log-Newline {
     Write-Host ""
     Add-Content -Path $LogFile -Value ""
 }
-
 # ----------------------------------------
 # Login → Get Token
 # ----------------------------------------
 function Get-AuthToken {
     Log "Attempting login to get JWT token..."
 
-    
     $loginPayload = @{
         user = "COMMANDER"
         api_key = "dummy_commander_secret_key"

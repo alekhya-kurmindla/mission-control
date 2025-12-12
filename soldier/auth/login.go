@@ -15,16 +15,17 @@ var (
 	Ctx = context.Background() // Global context
 )
 
+// GetAuth performs a single authentication request to the Commander API
 func GetAuth(ctx context.Context) error {
 	commanderURL := os.Getenv("COMMANDER_URL")
 
-	// Prepare login request
+	// Prepare login credentials
 	creds := map[string]string{
-		"user":    config.SOLDIER_USER,
-		"api_key": os.Getenv("SOLDIER_API_KEY"),
+		"user":    config.SOLDIER_USER, // Soldier username
+		"api_key": os.Getenv("SOLDIER_API_KEY"), // Soldier API key from environment
 	}
 
-	body, _ := json.Marshal(creds)
+	body, _ := json.Marshal(creds) // Convert credentials to JSON
 
 	req, err := http.NewRequest("POST", commanderURL+"/login", bytes.NewBuffer(body))
 
@@ -42,19 +43,20 @@ func GetAuth(ctx context.Context) error {
 	return nil
 }
 
+// GetAuthWithRetry attempts login up to 5 times with delays between retries
 func GetAuthWithRetry() bool {
 	for retries := 1; retries <= 5; retries++ {
 
 		log.Printf("Soldier login attempt %d/5...", retries)
 		if err := GetAuth(Ctx); err == nil {
-			log.Println("Soldier authenticated successfully")
+			log.Println("Soldier authenticated successfully") // Success
 			return true
 		}
 
-		log.Println("Login failed — retrying in 3 seconds")
-		time.Sleep(3 * time.Second)
+		log.Println("Login failed — retrying in 3 seconds") // Retry message
+		time.Sleep(3 * time.Second)  
 	}
 
-	log.Println("Soldier login failed after 5 attempts")
+	log.Println("Soldier login failed after 5 attempts") // Final failure after retries
 	return false
 }

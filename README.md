@@ -1,13 +1,89 @@
 # Commander--Soldier Messaging System
 
-A distributed command system where a Commander sends mission orders via
-RabbitMQ and Soldiers process them and return status updates.
-## Welcome to the Command Center.
-Your mission, should you choose to accept it, is to help build a secure, resilient communication system designed for modern military operations.
-This project implements a one-way, asynchronous command pipeline between:
-Commander's Camp – Issues orders
-Soldier Units – Execute missions on the battlefield
-Central Communication Hub – A secure, internal message broker
+A distributed Commander–Soldier mission execution system built in Golang with RabbitMQ for message queuing.
+The Commander service submits missions, and Soldier workers pick them up concurrently, process them, and push back live status updates.
+
+## Architecture Overview
+### Commander
+
+Accepts mission submissions via API
+
+Sends missions to orders_queue
+
+Polls status_queue to track mission progress
+
+Logs mission lifecycle (QUEUED → IN_PROGRESS → COMPLETED/FAILED)
+
+### Soldier
+
+Continuously listens on orders_queue
+
+Processes missions (simulated work + randomized failures)
+
+Sends back status updates to status_queue
+
+Handles concurrency safely using channels and goroutines
+
+## Message Queues
+
+orders_queue → Commander → Soldier (mission orders)
+
+status_queue → Soldier → Commander (mission progress/status)
+
+## Commander Service 
+The Commander service acts as the central controller of the system. It accepts incoming mission creation requests through HTTP and generates a unique mission_id for each mission. These missions are then published to the RabbitMQ orders_queue, where they are consumed by Soldier services. At the same time, the Commander listens for mission status updates coming from the status_queue, processes them, and updates each mission’s status in an in-memory store secured with a mutex to ensure thread-safe access. Additionally, the Commander exposes HTTP endpoints that allow clients to fetch the current status of any mission.
+
+```Commander → Soldier ```
+Publishes mission orders to orders_queue.
+
+## Soldier Service
+The Soldier service acts as the executor of missions received from the Commander. It continuously listens to the RabbitMQ orders_queue for new mission instructions. Upon receiving a mission, the Soldier authenticates itself with the Commander service, processes the mission, and simulates execution by introducing realistic delays. During execution, it sends status updates—such as IN_PROGRESS, COMPLETED, or FAILED—back to the Commander through the status_queue. The Soldier uses retry mechanisms to ensure reliable message delivery and maintains secure communication using JWT authentication.
+
+Publishes mission status updates to status_queue.
+Publishes mission progress (IN_PROGRESS, COMPLETED, FAILED) to status_queue.
+
+## Concurrency & Safety Procedures
+
+The Commander–Soldier system is built to safely handle multiple missions running in parallel while avoiding race conditions, deadlocks, and message-processing failures. The following safeguards are implemented throughout the codebase:
+
+#### 1. Thread-Safe Mission Store (Commander)
+
+Mission statuses are stored in an in-memory map protected by a sync.RWMutex.
+Every read/write (GetMissionHandler, SaveMissionStatus) is fully synchronized.
+Prevents concurrent updates from corrupting mission state.
+
+#### 2. Safe Parallel Mission Execution (Soldier)
+
+Each mission pulled from orders_queue is executed inside a separate goroutine.
+A defer recover() is included to prevent a panic in one mission from crashing the Soldier service.
+
+#### 3. Controlled Message Flow (Commander)
+
+Status message consumption uses:
+
+ch.Qos(1, 0, false)
+
+This ensures the Commander processes only one unacknowledged status update at a time, preventing overload and ensuring stable state updates.
+
+#### 4. Retry with Exponential Backoff
+
+Both Commander and Soldier include:
+RabbitMQ publish retry logic
+Connection retry loops (SetupRabbitWithRetry)
+Ensures services remain stable during queue outages or network issues.
+
+#### 5. Thread-Safe JWT Token Lifecycle (Soldier)
+
+AuthToken and RefreshToken are stored in a struct protected by sync.RWMutex.
+Prevents race conditions when:
+goroutines validate tokens
+token refresh happens mid-execution
+Expired tokens trigger an automatic refresh before mission execution.
+
+#### 6. Structured Error Handling & Logging
+
+All mission execution, authentication, and messaging logic includes explicit error paths and log outputs.
+Failures never block other missions or consumers.
 
 ## Setup Instructions
 
@@ -56,97 +132,36 @@ mission_control/
 │
 └── README.md
 ```
+
+### Mission Status Flow
+
+Status	Description
+
+QUEUED	Mission received, waiting for processing
+
+IN_PROGRESS	Soldier started execution
+
+COMPLETED	Mission executed successfully
+
+FAILED	Mission execution failed
+
 ### Design diagram
 
 <img width="670" height="531" alt="design_diagram drawio" src="https://github.com/user-attachments/assets/8343548e-cfd3-4149-a101-14797d9b44c0" />
 
-
-### Technology
-
-| Component            | Technology               | Rationale                                                                                                      |
-| -------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| **API Framework**    | Golang (net/http)        | Fast, strongly typed, and ideal for building efficient, reliable backend APIs with minimal runtime overhead.   |
-| **Persistence**      | Global In-Memory Map     | Lightweight, zero-dependency storage for tracking mission states within the service instance.                  |
-| **Message Queue**    | RabbitMQ                 | Provides reliable message delivery, queue-based communication, and decoupling between API and worker services. |
-| **Containerization** | Docker                   | Ensures consistent environments, clean isolation, and simple deployment across machines.                       |
-| **Message Format**   | JSON                     | Human-readable, language-agnostic, and easy to encode/decode in Go.                                            |
-| **Worker Scaling**   | Docker Compose Replicas  | Offers straightforward horizontal scaling without needing complex orchestration tools like Kubernetes.         |
-
-
-
 ## JWT Authentication
 
-JWT is validated before soldier executes any mission.
+JWT-based access tokens for Soldiers.
 
-## Design Rationale
+Short-lived access tokens + long-lived refresh tokens.
 
-The architecture adopts RabbitMQ as the core message broker to ensure reliable, decoupled communication between the Commander service and multiple Soldier workers. RabbitMQ was selected for its durability guarantees, built-in acknowledgment model, routing flexibility, and strong support for distributed worker patterns. This allows mission commands to be processed asynchronously, enables horizontal scaling of Soldiers, and ensures no mission is lost even during service restarts. The system’s concurrency model leverages Go’s goroutines and channel-driven worker logic, providing lightweight parallel processing and predictable performance under load, making it well-suited for high-throughput, event-driven workloads.
+Tokens stored in a thread-safe struct with sync.RWMutex.
 
-Authentication is handled using JWT-based access tokens paired with long-lived refresh tokens to balance security with usability. Short-lived access tokens minimize risk exposure, while refresh tokens allow clients to re-authenticate without storing credentials or repeatedly logging in. This stateless authentication model reduces server-side complexity and integrates cleanly with the Commander’s API gateway responsibilities. Together, these choices create a scalable, fault-tolerant, and secure system optimized for real-time mission dispatching and status tracking.
+Soldiers auto-refresh expired tokens before mission execution.
 
 ## Mission Control – Flow Diagram
 
-                           ┌─────────────────────────┐
-                           │     Mission Control     │
-                           │      (HTTP API)         │
-                           └──────────┬──────────────┘
-                                      │
-                                      │ 1. Receive Mission Request
-                                      ▼
-                           ┌─────────────────────────┐
-                           │   Generate Mission ID   │
-                           │   Store in MissionsMap  │
-                           └──────────┬──────────────┘
-                                      │
-                                      │ 2. Publish Mission Order
-                                      ▼
-                         ┌────────────────────────────────┐
-                         │         RabbitMQ Queue         │
-                         │          orders_queue          │
-                         └────────────────┬───────────────┘
-                                          │
-                                          │ 3. Mission picked by Soldier
-                                          ▼
-                         ┌────────────────────────────────┐
-                         │         Soldier Service        │
-                         │   (execute_mission.go logic)   │
-                         └────────────────┬───────────────┘
-                                          │
-                                  ┌───────┴─────────────────────────────-──┐
-                                  │ 3a. Publish "IN_PROGRESS" to RabbitMQ  │
-                                  │     status_queue                       │
-                                  └────────────────────────────────────────┘
-                                          │
-                                          │ 4. Soldier executes mission
-                                          │    • sleeps random 5–10 sec  
-                                          │    • randomly completes/ fails  
-                                          ▼
-                                  ┌───────────────────────────────────────-─┐
-                                  │ Publish final status (COMPLETED/FAILED) │
-                                  │             to status_queue             |
-                                  └──────────────────────────────────────-──┘
-                                          │
-                                          │ 5. Mission Control subscribes
-                                          ▼
-                       ┌──────────────────────────────────────────────────┐
-                       │      Status Consumer (Mission Control Side)      │
-                       └──────────────────┬───────────────────────────────┘
-                                          │
-                                      6. Update MissionsMap
-                                          │
-                                          ▼
-                           ┌─────────────────────────┐
-                           │  GetMissionHandler API  │
-                           │  /missions/{id}         │
-                           └──────────┬──────────────┘
-                                      │
-                             7. Client Requests Status
-                                      │
-                                      ▼
-                           ┌─────────────────────────┐
-                           │  Return Mission Status  │
-                           │ (IN_PROGRESS/FAILED/OK) │
-                           └─────────────────────────┘
+
 
 ### Mission Status Flow
 <table>
@@ -233,6 +248,24 @@ docoker-compose up
         <td><img width="1252" height="267" alt="image" src="https://github.com/user-attachments/assets/e046848d-ae9e-452d-8a94-e92f63dea93e" /></td>
     </tr>
 </table>
+
+### Technology
+
+| Component            | Technology               | Rationale                                                                                                      |
+| -------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| **API Framework**    | Golang (net/http)        | Fast, strongly typed, and ideal for building efficient, reliable backend APIs with minimal runtime overhead.   |
+| **Persistence**      | Global In-Memory Map     | Lightweight, zero-dependency storage for tracking mission states within the service instance.                  |
+| **Message Queue**    | RabbitMQ                 | Provides reliable message delivery, queue-based communication, and decoupling between API and worker services. |
+| **Containerization** | Docker                   | Ensures consistent environments, clean isolation, and simple deployment across machines.                       |
+| **Message Format**   | JSON                     | Human-readable, language-agnostic, and easy to encode/decode in Go.                                            |
+| **Worker Scaling**   | Docker Compose Replicas  | Offers straightforward horizontal scaling without needing complex orchestration tools like Kubernetes.         |
+
+
+## Design Rationale
+
+The architecture adopts RabbitMQ as the core message broker to ensure reliable, decoupled communication between the Commander service and multiple Soldier workers. RabbitMQ was selected for its durability guarantees, built-in acknowledgment model, routing flexibility, and strong support for distributed worker patterns. This allows mission commands to be processed asynchronously, enables horizontal scaling of Soldiers, and ensures no mission is lost even during service restarts. The system’s concurrency model leverages Go’s goroutines and channel-driven worker logic, providing lightweight parallel processing and predictable performance under load, making it well-suited for high-throughput, event-driven workloads.
+
+Authentication is handled using JWT-based access tokens paired with long-lived refresh tokens to balance security with usability. Short-lived access tokens minimize risk exposure, while refresh tokens allow clients to re-authenticate without storing credentials or repeatedly logging in. This stateless authentication model reduces server-side complexity and integrates cleanly with the Commander’s API gateway responsibilities. Together, these choices create a scalable, fault-tolerant, and secure system optimized for real-time mission dispatching and status tracking.
 
 ## AI Usage Policy
 
