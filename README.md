@@ -175,7 +175,7 @@ COMPLETED	Mission executed successfully
 
 FAILED	Mission execution failed
 
-### Design diagram
+### Mission Control – Design diagram
 
 <img width="670" height="531" alt="design_diagram drawio" src="https://github.com/user-attachments/assets/8343548e-cfd3-4149-a101-14797d9b44c0" />
 
