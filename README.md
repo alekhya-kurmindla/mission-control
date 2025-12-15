@@ -184,6 +184,67 @@ Soldiers auto-refresh expired tokens before mission execution.
 
 ## Mission Control – Flow Diagram
 
+                           ┌─────────────────────────┐
+                           │     Mission Control     │
+                           │      (HTTP API)         │
+                           └──────────┬──────────────┘
+                                      │
+                                      │ 1. Receive Mission Request
+                                      ▼
+                           ┌─────────────────────────┐
+                           │   Generate Mission ID   │
+                           │   Store in MissionsMap  │
+                           └──────────┬──────────────┘
+                                      │
+                                      │ 2. Publish Mission Order
+                                      ▼
+                         ┌────────────────────────────────┐
+                         │         RabbitMQ Queue         │
+                         │          orders_queue          │
+                         └────────────────┬───────────────┘
+                                          │
+                                          │ 3. Mission picked by Soldier
+                                          ▼
+                         ┌────────────────────────────────┐
+                         │         Soldier Service        │
+                         │   (execute_mission.go logic)   │
+                         └────────────────┬───────────────┘
+                                          │
+                                  ┌───────┴─────────────────────────────-──┐
+                                  │ 3a. Publish "IN_PROGRESS" to RabbitMQ  │
+                                  │     status_queue                       │
+                                  └────────────────────────────────────────┘
+                                          │
+                                          │ 4. Soldier executes mission
+                                          │    • sleeps random 5–10 sec  
+                                          │    • randomly completes/ fails  
+                                          ▼
+                                  ┌───────────────────────────────────────-─┐
+                                  │ Publish final status (COMPLETED/FAILED) │
+                                  │             to status_queue             |
+                                  └──────────────────────────────────────-──┘
+                                          │
+                                          │ 5. Mission Control subscribes
+                                          ▼
+                       ┌──────────────────────────────────────────────────┐
+                       │      Status Consumer (Mission Control Side)      │
+                       └──────────────────┬───────────────────────────────┘
+                                          │
+                                      6. Update MissionsMap
+                                          │
+                                          ▼
+                           ┌─────────────────────────┐
+                           │  GetMissionHandler API  │
+                           │  /missions/{id}         │
+                           └──────────┬──────────────┘
+                                      │
+                             7. Client Requests Status
+                                      │
+                                      ▼
+                           ┌─────────────────────────┐
+                           │  Return Mission Status  │
+                           │ (IN_PROGRESS/FAILED/OK) │
+                           └─────────────────────────┘
 
 
 ### Mission Status Flow
