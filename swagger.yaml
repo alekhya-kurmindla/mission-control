@@ -11,29 +11,92 @@ paths:
 
   /login:
     post:
-      summary: Generates a JWT token for authentication
-      description: Public endpoint. Returns a signed JWT token used to authenticate further API calls.
+      summary: Login and generate JWT tokens
+      description: Public endpoint. Returns access and refresh tokens for authentication.
       tags:
         - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user
+                - api_key
+              properties:
+                user:
+                  type: string
+                  example: COMMANDER
+                api_key:
+                  type: string
+                  example: dummy_commander_secret_key
       responses:
         "200":
-          description: JWT token generated successfully
+          description: Access and refresh tokens generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWTToken'
+        "500":
+          description: Failed to generate tokens
+
+  /refresh:
+    post:
+      summary: Refresh JWT tokens
+      description: Exchanges a valid refresh token for new access and refresh tokens.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        "200":
+          description: New access and refresh tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JWTToken'
+        "401":
+          description: Invalid or expired refresh token
+
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the current status of the Commander service.
+      tags:
+        - System
+      responses:
+        "200":
+          description: Service health
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  token:
+                  message:
                     type: string
-                    description: JWT authorization token
-                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-        "500":
-          description: Failed to generate token
+                    example: Service is healthy
+                  service:
+                    type: string
+                    example: commander
+                  status:
+                    type: string
+                    example: ok
 
   /missions:
     post:
-      summary: Creates a new mission and publishes to RabbitMQ
-      description: Creates a mission, stores it in memory, and publishes it to RabbitMQ with retry logic.
+      summary: Create a new mission and publish to RabbitMQ
+      description: Creates a mission, stores it in memory, and publishes it to RabbitMQ.
       security:
         - bearerAuth: []
       tags:
@@ -67,7 +130,7 @@ paths:
 
   /missions/{id}:
     get:
-      summary: Retrieves mission details by ID
+      summary: Retrieve mission details by ID
       description: Fetches mission status from memory storage.
       security:
         - bearerAuth: []
@@ -102,16 +165,31 @@ components:
 
   schemas:
 
+    JWTToken:
+      type: object
+      properties:
+        token:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: Access token for authentication
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            refresh_token:
+              type: string
+              description: Refresh token for obtaining new access token
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
     Mission:
       type: object
       properties:
         mission_id:
           type: string
-          example: "b123f942-3bf1-4eb9-bfa0-1c0a92a5db20"
+          example: b123f942-3bf1-4eb9-bfa0-1c0a92a5db20
         order:
           type: string
-          example: "Patrol the northern perimeter"
+          example: Patrol the northern perimeter
         status:
           type: string
-          example: "QUEUED"
+          example: QUEUED
       description: Mission details returned to the client
