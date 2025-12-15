@@ -42,6 +42,29 @@ The Soldier service acts as the executor of missions received from the Commander
 Publishes mission status updates to status_queue.
 Publishes mission progress (IN_PROGRESS, COMPLETED, FAILED) to status_queue.
 
+### Authentication & Token Rotation
+
+The Soldier service authenticates with the Commander using a JWT-based access token.
+Each authentication token has a short lifespan of 30 seconds to improve security.
+
+``` How Token Rotation Works ```
+
+On startup, the Soldier authenticates with the Commander (/login endpoint).
+
+A token expiry timer is set for 30 seconds.
+
+Before executing a mission, the Soldier verifies token validity.
+
+If the token is expired:
+
+The Soldier automatically re-authenticates with the Commander.
+
+A new token is obtained and execution continues without interruption.
+
+Token refresh events are logged in both Soldier and Commander services.
+
+This approach ensures secure identity rotation, uninterrupted mission processing, and avoids mission failures due to expired credentials.
+
 ## Concurrency & Safety Procedures
 
 The Commander–Soldier system is built to safely handle multiple missions running in parallel while avoiding race conditions, deadlocks, and message-processing failures. The following safeguards are implemented throughout the codebase:
@@ -234,20 +257,9 @@ docoker-compose up
 <img width="1072" height="751" alt="image" src="https://github.com/user-attachments/assets/063bd3d4-2464-402e-8653-46b76f014f1c" />
 
 ## API Documentation
-<table>
-    <tr>
-        <td><img width="1421" height="803" alt="image" src="https://github.com/user-attachments/assets/adf1a313-72e7-43c6-bc86-70af23413afb" /></td>
-    </tr>
-     <tr>
-        <td><img width="1278" height="811" alt="image" src="https://github.com/user-attachments/assets/f00ac572-e327-4328-ac26-295f6066ba89" /></td>
-    </tr>
-     <tr>
-        <td><img width="1299" height="706" alt="image" src="https://github.com/user-attachments/assets/70d575db-01d7-40c3-921c-ddf7e7b489ae" /></td>
-    </tr>
-     <tr>
-        <td><img width="1252" height="267" alt="image" src="https://github.com/user-attachments/assets/e046848d-ae9e-452d-8a94-e92f63dea93e" /></td>
-    </tr>
-</table>
+
+https://editor.swagger.io/?url=https://raw.githubusercontent.com/alekhya-kurmindla/mission-control/main/swagger.yaml
+
 
 ### Technology
 
