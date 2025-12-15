@@ -21,7 +21,7 @@ func GetAuth(ctx context.Context) error {
 
 	// Prepare login credentials
 	creds := map[string]string{
-		"user":    config.SOLDIER_USER, // Soldier username
+		"user":    config.SOLDIER_USER,          // Soldier username
 		"api_key": os.Getenv("SOLDIER_API_KEY"), // Soldier API key from environment
 	}
 
@@ -43,7 +43,7 @@ func GetAuth(ctx context.Context) error {
 	return nil
 }
 
-// GetAuthWithRetry attempts login up to 5 times with delays between retries
+// GetAuthWithRetry attempts soldier authentication with retries and sets token expiry on success
 func GetAuthWithRetry() bool {
 	for retries := 1; retries <= 5; retries++ {
 
@@ -54,7 +54,7 @@ func GetAuthWithRetry() bool {
 		}
 
 		log.Println("Login failed — retrying in 3 seconds") // Retry message
-		time.Sleep(3 * time.Second)  
+		time.Sleep(3 * time.Second) //backoff
 	}
 
 	log.Println("Soldier login failed after 5 attempts") // Final failure after retries

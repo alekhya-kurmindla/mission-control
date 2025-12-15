@@ -17,6 +17,7 @@ import (
 // ExecuteMission runs the mission logic and sends status updates
 func ExecuteMission(ctx context.Context, m models.Mission, ch *amqp.Channel) {
 
+	log.Println("ExecuteMission started")
 	// Validate soldier token before executing mission
 	err := auth.ValidateSoldier(ctx)
 

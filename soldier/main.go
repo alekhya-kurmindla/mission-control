@@ -1,17 +1,22 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"mission_control/soldier/auth"
 	"mission_control/soldier/execute_mission"
 	"mission_control/soldier/models"
 	"mission_control/soldier/rabbitmq"
+	"os"
+	"os/signal"
 )
 
 func main() {
 	log.Println("Soldier starting up...")
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 	//Connect to RabbitMQ with retry
 	conn, ch := rabbitmq.SetupRabbitWithRetry()
 	defer conn.Close()
@@ -21,6 +26,9 @@ func main() {
 	if !auth.GetAuthWithRetry() {
 		log.Fatal("Soldier cannot start without authentication")
 	}
+
+	// Rotate token for every 30 seconds
+	go auth.RotateToken(ctx)
 
 	//Start consuming messages
 	msgs, err := ch.Consume(rabbitmq.OrdersQueue, "", true, false, false, false, nil)
@@ -58,5 +66,10 @@ func main() {
 			execute_mission.ExecuteMission(auth.Ctx, m, ch)
 		}(mission)
 	}
+
 	log.Println("RabbitMQ channel closed — soldier stopping")
+
+	// Wait for interrupt signal
+	<-ctx.Done()
+	log.Println("Shutting down...")
 }
