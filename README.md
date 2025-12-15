@@ -179,16 +179,6 @@ FAILED	Mission execution failed
 
 <img width="670" height="531" alt="design_diagram drawio" src="https://github.com/user-attachments/assets/8343548e-cfd3-4149-a101-14797d9b44c0" />
 
-## JWT Authentication
-
-JWT-based access tokens for Soldiers.
-
-Short-lived access tokens + long-lived refresh tokens.
-
-Tokens stored in a thread-safe struct with sync.RWMutex.
-
-Soldiers auto-refresh expired tokens before mission execution.
-
 ## Mission Control – Flow Diagram
 
                            ┌─────────────────────────┐
@@ -273,6 +263,17 @@ Soldiers auto-refresh expired tokens before mission execution.
         <td>Mission execution was unsuccessful</td>
     </tr>
 </table>                      
+
+
+## JWT Authentication
+
+JWT-based access tokens for Soldiers.
+
+Short-lived access tokens + long-lived refresh tokens.
+
+Tokens stored in a thread-safe struct with sync.RWMutex.
+
+Soldiers auto-refresh expired tokens before mission execution.
 
 ## Overview of the Unit Testing Strategy
 
