@@ -38,6 +38,15 @@ create_count_file() {
     fi
 }
 
+remove_count_file() {
+    COUNT_FILE="count_file.txt"
+
+    # Delete the file if it exists
+    if [ -f "$COUNT_FILE" ]; then
+    rm "$COUNT_FILE"
+    fi
+}
+
 log() {
     local message="$1"
     local level="${2:-INFO}"
@@ -459,6 +468,7 @@ main() {
     log_newline
     test_concurrency
     count_status   
+    remove_count_file
     log "=== All Tests are Completed ==="
     log_newline
     log "Test results stored in log file: $LOG_FILE"
