@@ -122,6 +122,13 @@ Download Go from https://go.dev/dl/
     rabbitmq_management
 4.  Open dashboard at http://localhost:15672
 
+### Download Docker Desktop
+
+1. Go to https://www.docker.com/products/docker-desktop
+2. Download Docker Desktop for Windows
+3. Run the installer
+4. Install WSL(Windows Subsystem for Linux)
+
 ## Project Structure
 ```
 mission_control/
@@ -274,19 +281,30 @@ The Mission Control project includes a comprehensive suite of unit tests that va
 <img width="1183" height="482" alt="image" src="https://github.com/user-attachments/assets/0f1a13d4-3d1f-479d-bbd1-b58b605ccd50" />
 
 
-#### Run Commander
+#### Run
+Clone this repository
 ```
-go run commander/main.go
-```
-#### Run Soldier
-```
-go run soldier/main.go
+git@github.com:alekhya-kurmindla/mission-control.git
 ```
 #### Docker compose
 RUN docker
 ```
-docoker-compose up
+docoker-compose up --build
 ```
+#### Run test
+Change directory to /mission-control and run either power shell  or shell script
+
+```
+.\test_missions.ps1
+```
+or
+
+```
+sh ./test_missions.sh
+
+```
+
+#### Check container status and RabbitMQ  status
 <table>
     <tr>
         <td><img width="1573" height="775" alt="image" src="https://github.com/user-attachments/assets/31bf2b08-f7c8-4b0c-9f30-1dbc2ad36b17" /></td>
